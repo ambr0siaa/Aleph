@@ -50,6 +50,8 @@
 #    include <sys/types.h>
 #endif
 
+#define BIL_FUNC static inline
+
 #define BIL_DA_INIT_CAPACITY 256
 
 #define BIL_ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -259,13 +261,17 @@ typedef struct {
 *      bil_dep_init(&dep, <output file path>, <dependeces>);
 */
 typedef struct {
+    int update;
     Bil_Cstr_Array deps;
     Bil_Cstr_Array changed;
     const char *output_file;
 } Bil_Dep;
 
-bool bil_dep_ischange(Bil_Dep *dep);                         /* the main workhorse function for dependencies */
-int *bil_deps_ischange(const Bil_Dep *deps, size_t count);   /* checks many dependeces */
+#define BIL_DEP_UPDATE_TRUE  1
+#define BIL_DEP_UPDATE_FALSE 0
+
+bool bil_dep_ischange(Bil_Dep *dep); /* the main workhorse function for dependencies */
+int *bil_deps_ischange(const Bil_Dep *deps, size_t count); /* checks many dependeces */
 
 /* returns array of ints with `bil_dep_ischange` result respectively provided dependences */
 #define bil_check_deps(...) \
@@ -289,10 +295,9 @@ bool bil_deps_info_search(Bil_Deps_Info *info, uint32_t id, struct bil_dep_info 
 
 #define bil_dep_init(dep, output_file_path, ...)                                  \
     do {                                                                          \
+        (dep)->update = BIL_DEP_UPDATE_FALSE;                                     \
         (dep)->output_file = output_file_path;                                    \
-        bil_cstr_arr_append_many(&(dep)->deps,                                    \
-                             ((const char*[]){__VA_ARGS__}),                      \
-                             sizeof((const char*[]){__VA_ARGS__})/sizeof(char*)); \
+        bil_cstr_arr_append_many(&(dep)->deps, ((const char*[]){__VA_ARGS__}), sizeof((const char*[]){__VA_ARGS__})/sizeof(char*)); \
     } while (0)
 
 
@@ -328,16 +333,17 @@ bool bil_check_for_rebuild(const char *output_file_path, const char *source_file
                 if (is_current) bil_sb_clean(&deleteme_bil_sb_path);                                    \
                 Bil_Cmd rebuild_cmd = {0};                                                              \
                 bil_cmd_append(&rebuild_cmd, BIL_REBUILD_COMMAND(source_file_path, output_file_path));  \
-                if (!bil_cmd_run_sync(&rebuild_cmd)) bil_defer_status(BIL_EXIT_FAILURE);                \
+                if (!bil_cmd_run_sync(&rebuild_cmd)) {                                                  \
+                    status = BIL_EXIT_FAILURE;                                                          \
+                    goto rebuild_defer;                                                                 \
+                }                                                                                       \
                 bil_report(BIL_INFO, "rebuild complete");                                               \
                 bil_cmd_clean(&rebuild_cmd);                                                            \
                 Bil_Cmd cmd = {0};                                                                      \
                 bil_da_append_many(&cmd, argv, argc);                                                   \
-                status = bil_cmd_run_sync(&cmd);                                                        \
-                bil_cmd_clean(&cmd);                                                                    \
-                bil_defer_status(!status);                                                              \
+                status = !bil_cmd_run_sync(&cmd);                                                       \
             }                                                                                           \
-    defer:                                                                                              \
+    rebuild_defer:                                                                                      \
         bil_workflow_end(WORKFLOW_NO_TIME);                                                             \
         if (status != -1) BIL_EXIT(status);                                                             \
     } while (0)
@@ -355,7 +361,7 @@ bool bil_read_file(const char *file_path, char **dst);
 bool bil_read_entire_file(const char *file_path, Bil_String_View *dst);
 bool bil_rename_file(const char *file_path, const char *new_path);
 void bil_cut_file_extension(Bil_String_Builder *file, bool dot);
-void bil_replace_file_extension(Bil_String_Builder *file, const char *ext);
+Bil_String_Builder bil_replace_file_extension(Bil_String_Builder *file, const char *ext);
 
 char *bil_shift_args(int *argc, char ***argv);
 
@@ -454,10 +460,13 @@ void bil_cut_file_extension(Bil_String_Builder *file, bool dot)
     file->count -= i;
 }
 
-void bil_replace_file_extension(Bil_String_Builder *file, const char *ext)
+Bil_String_Builder bil_replace_file_extension(Bil_String_Builder *file, const char *ext)
 {
-    bil_cut_file_extension(file, BIL_DOT_NEED);
-    bil_sb_join_cstr(file, ext);
+    Bil_String_Builder sb = bil_sb_from_cstr(file->items);
+    bil_cut_file_extension(&sb, BIL_DOT_NEED);
+    bil_sb_join_cstr(&sb, ext);
+    bil_sb_join_nul(&sb);
+    return sb;
 }
 
 void extra_exit()
@@ -996,6 +1005,7 @@ bool bil_dep_ischange(Bil_Dep *dep)
         struct bil_dep_info target = {0};
         bool found = bil_deps_info_search(&info, dependence_info.id, &target);
         if (!found) {
+            dep->update = BIL_DEP_UPDATE_TRUE;
             update = dependence;
             goto dep_write;
         }
@@ -1009,6 +1019,7 @@ bool bil_dep_ischange(Bil_Dep *dep)
         {
             result = true;
             changed = true;
+            dep->update = BIL_DEP_UPDATE_TRUE;
         }
         if (changed == true) {
             bil_cstr_array_append(&dep->changed, dependence);
@@ -1194,23 +1205,19 @@ bool bil_proc_await(Bil_Proc proc)
 {
 #ifdef _WIN32
     DWORD result = WaitForSingleObject(proc, INFINITE);
-
     if (result == WAIT_FAILED) {
         bil_report(BIL_ERROR, "Could not wait on child process: %lu", GetLastError());
         return false;
     }
-
     DWORD exit_status;
     if (!GetExitCodeProcess(proc, &exit_status)) {
         bil_report(BIL_ERROR, "Could not get process exit code: %lu", GetLastError());
         return false;
     }
-
     if (exit_status != 0) {
         bil_report(BIL_ERROR, "Command exited with exit code %lu", exit_status);
         return false;
     }
-
     CloseHandle(proc);
 #else
     for(;;) {
@@ -1219,7 +1226,6 @@ bool bil_proc_await(Bil_Proc proc)
             bil_report(BIL_ERROR, "could not wait on command (pid %d): %s", proc, strerror(errno));
             return false;
         }
-
         if (WIFEXITED(wstatus)) {
             int exit_status = WEXITSTATUS(wstatus);
             if (exit_status != 0) {
@@ -1228,7 +1234,6 @@ bool bil_proc_await(Bil_Proc proc)
             }
             break;
         }
-
         if (WIFSIGNALED(wstatus)) {
             bil_report(BIL_ERROR, "command process was terminated by %s", strsignal(WTERMSIG(wstatus)));
             return false;
@@ -1249,13 +1254,11 @@ bool bil_check_for_rebuild(const char *output_file_path, const char *source_file
 {
     Bil_FileTime src_file_time = bil_file_last_update(source_file_path);
     Bil_FileTime output_file_time = bil_file_last_update(output_file_path);
-
     #ifdef _WIN32
     if (CompareFileTime(&src_file_time, &output_file_time) == 1) return true;
     #else
     if (src_file_time > output_file_time) return true;
     #endif
-
     return false;
 }
 

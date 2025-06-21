@@ -13,12 +13,15 @@
 #define ALF_STATUS_FCK 1
 
 typedef struct {
+    size_t line, offset;
+    const char *file;
+} Location;
+
+typedef struct {
     int status;
-    String_Builder source;
+    String_View source;
     const char *src_path;
     const char *program;
 } Alf_State;
-
-ALF_API Alf_State alf_state(const char *program);
 
 #endif // COMMON_H_
