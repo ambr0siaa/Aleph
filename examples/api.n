@@ -1,0 +1,10 @@
+
+
+function main():
+    let foo:int = 123
+
+    if foo == 123:
+        print("Hello, World") 
+    end
+end
+
