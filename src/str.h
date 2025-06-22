@@ -1,6 +1,7 @@
 #ifndef STR_H_
 #define STR_H_
 
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>

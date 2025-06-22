@@ -1,5 +1,6 @@
 #include "str.h"
 
+
 String_View string_view(const char *cstr) {
     return (String_View) {
         .count = strlen(cstr),

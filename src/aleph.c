@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include "common.h"
 
+
 #define alf_defer_status(a) { if ((a).status == ALF_STATUS_FCK) goto alf_defer; }
 
 ALF_FUNC const char *shift_args(int *argc, char ***argv) {

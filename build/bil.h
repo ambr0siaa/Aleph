@@ -148,9 +148,9 @@ typedef enum {
 void bil_report(bil_report_flags flag, char *fmt, ...);
 
 typedef struct {
-    char **items;
-    size_t count;
     size_t capacity;
+    size_t count;
+    char **items;
 } Bil_Cstr_Array;
 
 void bil_cstr_arr_clean(Bil_Cstr_Array *arr);
@@ -162,9 +162,9 @@ void bil_cstr_arr_append_many(Bil_Cstr_Array *arr, const char **items, size_t it
     bil_da_append_many((arr), ((const char *[]){__VA_ARGS__}), sizeof((const char *[]){__VA_ARGS__}) / sizeof(const char*))
 
 typedef struct {
-    char *items;
-    size_t count;
     size_t capacity;
+    size_t count;
+    char *items;
 } Bil_String_Builder;
 
 #define SB_Args(sb) (int) (sb).count, (sb).items
@@ -180,8 +180,8 @@ Bil_String_Builder bil_sb_from_cstr(char *cstr);
 #define SB_JOIN(sb,...)      bil_sb_join_many((sb), __VA_ARGS__, NULL)
 
 typedef struct {
-    char *data;
     size_t count;
+    char *data;
 } Bil_String_View;
 
 #define SV_Fmt SB_Fmt
@@ -200,9 +200,9 @@ uint32_t bil_sv_to_u32(Bil_String_View sv);
 char *bil_sv_to_cstr(Bil_String_View sv);
 
 typedef struct {
-    char **items;
-    size_t count;
     size_t capacity;
+    size_t count;
+    char **items;
 } Bil_Cmd;
 
 /* Single call of command, without providing `Bil_Cmd` structure */
@@ -246,9 +246,9 @@ struct bil_dep_info {
 
 /* TODO: binary search */
 typedef struct {
-    struct bil_dep_info *items;
-    size_t capacity;
     size_t count;
+    size_t capacity;
+    struct bil_dep_info *items;
 } Bil_Deps_Info;
 
 /*
@@ -261,10 +261,10 @@ typedef struct {
 *      bil_dep_init(&dep, <output file path>, <dependeces>);
 */
 typedef struct {
-    int update;
-    Bil_Cstr_Array deps;
-    Bil_Cstr_Array changed;
-    const char *output_file;
+    int update;                 // Did was any changes?
+    Bil_Cstr_Array deps;        // Keep tracking dependences
+    Bil_Cstr_Array changed;     // Already changed dependences after chicking in `bil_dep_ischange`
+    const char *output_file;    // File where writes info about dependences
 } Bil_Dep;
 
 #define BIL_DEP_UPDATE_TRUE  1
@@ -303,48 +303,41 @@ bool bil_deps_info_search(Bil_Deps_Info *info, uint32_t id, struct bil_dep_info 
 
 #define bil_dep_clean(dep) bil_cstr_arr_clean(&(dep)->deps)
 
-#define DELETEME_FILE "DELETEME"
+#define DELETEME_FILE   "DELETEME"
 #define BIL_CURRENT_DIR "cur"
 
 bool bil_check_for_rebuild(const char *output_file_path, const char *source_file_path);
 
 /*
 *  Macro for rebuilding building executable file when it provided.
-*  After rebuilding old file will rename to `DELETME` and run.
+*  After rebuilding old file will rename to `DELETEME` and run.
 */
 #define BIL_REBUILD(argc, argv, deleteme_dir)                                                           \
     do {                                                                                                \
-        bil_workflow_begin();                                                                           \
-            int status = -1;                                                                            \
+        int status = -1;                                                                                \
+        bil_workflow_begin(); {                                                                         \
             const char *output_file_path = (argv[0]);                                                   \
             const char *source_file_path = __FILE__;                                                    \
             bool rebuild_is_need = bil_check_for_rebuild(output_file_path, source_file_path);           \
             if (rebuild_is_need) {                                                                      \
-                Bil_String_Builder deleteme_bil_sb_path = {0};                                          \
+                Bil_Cmd rebuild_cmd = {0};                                                              \
                 const char *deleteme_path;                                                              \
-                int is_current = strcmp(deleteme_dir, BIL_CURRENT_DIR);                                 \
-                if (is_current) {                                                                       \
+                Bil_String_Builder deleteme_bil_sb_path = {0};                                          \
+                if (strcmp(deleteme_dir, BIL_CURRENT_DIR)) {                                            \
                     deleteme_bil_sb_path = BIL_PATH(".", deleteme_dir, DELETEME_FILE);                  \
                     deleteme_path = deleteme_bil_sb_path.items;                                         \
                 } else {                                                                                \
                     deleteme_path = DELETEME_FILE;                                                      \
                 }                                                                                       \
                 if (!bil_rename_file(output_file_path, deleteme_path)) extra_exit();                    \
-                if (is_current) bil_sb_clean(&deleteme_bil_sb_path);                                    \
-                Bil_Cmd rebuild_cmd = {0};                                                              \
                 bil_cmd_append(&rebuild_cmd, BIL_REBUILD_COMMAND(source_file_path, output_file_path));  \
-                if (!bil_cmd_run_sync(&rebuild_cmd)) {                                                  \
-                    status = BIL_EXIT_FAILURE;                                                          \
-                    goto rebuild_defer;                                                                 \
-                }                                                                                       \
+                if (!bil_cmd_run_sync(&rebuild_cmd)) extra_exit();                                      \
                 bil_report(BIL_INFO, "rebuild complete");                                               \
-                bil_cmd_clean(&rebuild_cmd);                                                            \
                 Bil_Cmd cmd = {0};                                                                      \
                 bil_da_append_many(&cmd, argv, argc);                                                   \
                 status = !bil_cmd_run_sync(&cmd);                                                       \
             }                                                                                           \
-    rebuild_defer:                                                                                      \
-        bil_workflow_end(WORKFLOW_NO_TIME);                                                             \
+        } bil_workflow_end(WORKFLOW_NO_TIME);                                                           \
         if (status != -1) BIL_EXIT(status);                                                             \
     } while (0)
 
