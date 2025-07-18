@@ -1,0 +1,13 @@
+main:fn = void -> int (     # Start main func
+    a:str = "Hello, Vlad"
+    b:int = 142
+    print(a)
+)
+
+#>
+
+And now we can run the main function
+
+<#
+
+main()

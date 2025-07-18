@@ -1,6 +1,6 @@
 #include <stdarg.h>
 #include "common.h"
-
+#include "lexer.h"
 
 #define alf_defer_status(a) { if ((a).status == ALF_STATUS_FCK) goto alf_defer; }
 
@@ -82,6 +82,14 @@ ALF_FUNC void parse_source_file(Alf_State *alf, const char *file_path) {
     fclose(f);
 }
 
+void lexer_tokenize_file(Lexer *l) {
+    Token tk = {0};
+    while (tk.type != TK_EOF) {
+        tk = lexer_token_next(l);
+        lexer_token_print(&tk);
+    }
+}
+
 int main(int argc, char **argv) {
     Alf_State alf = alf_state(shift_args(&argc, &argv)); // Directly push program
     if (argc == 0) {
@@ -95,8 +103,11 @@ int main(int argc, char **argv) {
         else parse_source_file(&alf, arg);
         alf_defer_status(alf);
     }
-    printf("Has read:\n{'\n"Str_Fmt"'}\n", Str_Args(alf.source));
+    Lexer lex = lexer_init(&alf.source, alf.src_path);
+    lexer_tokenize_file(&lex); 
     alf_defer:
+        // TODO: clean up lexer
+        hmfree(&lex.keywords);
         alf_clean(&alf);
         return alf.status;
 }

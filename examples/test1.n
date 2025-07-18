@@ -1,0 +1,11 @@
+a:flt = 213.0
+b:flt = 245.0
+t:flt = 0.56
+
+lerp = (x, y, t : flt) -> int return (x + (y - x) * t)
+
+if a * b >= 1234
+    print("Hello, world\n")
+else
+    print("%d\n", lerp(a, b, t))
+end

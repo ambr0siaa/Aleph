@@ -15,9 +15,12 @@ typedef struct {
 } String_View;
 
 String_View string_view(const char *cstr);
+String_View sv_from_parts(const char *cstr, size_t len);
+
 void sv_trim_left(String_View *sv);
 void sv_trim_right(String_View *sv);
 void sv_trim(String_View *sv);
+void sv_shift_left(String_View *sv, size_t shift);
 
 typedef struct {
     size_t count;

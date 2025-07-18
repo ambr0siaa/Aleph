@@ -7,9 +7,9 @@
 #define DBFLAG "-ggdb"
 #define TARGET "bin/aleph"
 
-#define SRC "src/aleph.c", "src/str.c"
-#define OBJ "src/aleph.o", "src/str.o"
-#define HDR "src/common.h", "src/str.h"
+#define SRC "src/aleph.c", "src/str.c", "src/hashmap.c", "src/lexer.c"
+#define OBJ "src/aleph.o", "src/str.o", "src/hashmap.o", "src/lexer.o"
+#define HDR "src/common.h", "src/str.h", "src/hashmap.h", "src/lexer.h"
 #define DIR "bin"
 
 static int g_flag, build_flag, o_flag;
@@ -21,11 +21,11 @@ BIL_FUNC void common_build_options(Bil_Cmd *cmd) {
     else if (o_flag) bil_cmd_append(cmd, OFLAGS);
 }
 
-BIL_FUNC bool build_object_file(Bil_String_Builder src, Bil_String_Builder obj) {
+BIL_FUNC bool build_object_file(Bil_String_Builder *src, Bil_String_Builder *obj) {
     Bil_Cmd cmd = {0};
     common_build_options(&cmd);
-    bil_cmd_append(&cmd, "-c", src.items);
-    bil_cmd_append(&cmd, "-o", obj.items);
+    bil_cmd_append(&cmd, "-c", src->items);
+    bil_cmd_append(&cmd, "-o", obj->items);
     if (!bil_cmd_run_sync(&cmd)) return false;
     return true;
 }
@@ -38,7 +38,15 @@ BIL_FUNC void parse_cmd_args(int *argc, char ***argv) {
                 case 'b': build_flag = 1; break;
                 case 'g': g_flag = 1;     break;
                 case 'o': o_flag = 1;     break;
-                default: {
+                case 'h': {
+                    bil_report(BIL_INFO, "Usage:");
+                    bil_report(BIL_INFO, "-b    build whole project without checking dependencies");
+                    bil_report(BIL_INFO, "-o    include optimisation flags to building process");
+                    bil_report(BIL_INFO, "-g    invlude debug information to buildgin process");
+                    bil_report(BIL_INFO, "-h    print this usage");
+                    break;
+                }
+                default: { 
                     bil_report(BIL_WARNING, "Unknown flag '%s'. Cannot parse it", arg);
                     break;
                 }
@@ -47,10 +55,31 @@ BIL_FUNC void parse_cmd_args(int *argc, char ***argv) {
     }
 }
 
+BIL_FUNC int build_project(void) {
+    bil_report(BIL_INFO, "Start build whole project...");
+    bil_workflow_begin(); {
+        Bil_Cmd cmd = {0};
+        Bil_Cstr_Array src = {0};
+        common_build_options(&cmd);
+        bil_cstr_array_append(&src, SRC);
+        for (size_t i = 0; i < src.count; ++i) {
+             Bil_String_Builder source = bil_sb_from_cstr(src.items[i]);
+             Bil_String_Builder object = bil_replace_file_extension(&source, "o");
+             bil_sb_join_nul(&source);
+             if (!build_object_file(&source, &object)) return BIL_EXIT_FAILURE;
+        }
+        bil_cmd_append(&cmd, OBJ);
+        bil_cmd_append(&cmd, "-o", TARGET);
+        if (!bil_cmd_run_sync(&cmd)) return BIL_EXIT_FAILURE;
+    } bil_workflow_end();
+    return BIL_EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv) {
     BIL_REBUILD(argc, argv, DIR);
     int status = BIL_EXIT_SUCCESS;
     parse_cmd_args(&argc, &argv);
+    if (build_flag) return build_project();
     bil_workflow_begin(); {
         Bil_Cmd cmd = {0};
         Bil_Dep aleph = {0};
@@ -64,7 +93,7 @@ int main(int argc, char **argv) {
                     bil_sb_join_nul(&source);
                     if (!bil_file_exist(object.items)) {
                         aleph.update = BIL_DEP_UPDATE_TRUE;
-                        if (!build_object_file(source, object)) {
+                        if (!build_object_file(&source, &object)) {
                             bil_defer_status(BIL_EXIT_FAILURE);
                         }
                     }
@@ -78,13 +107,13 @@ int main(int argc, char **argv) {
                         if (source.items[source.count - 1] != 'c') continue;
                         Bil_String_Builder object = bil_replace_file_extension(&source, "o");
                         bil_sb_join_nul(&source);
-                        if (!build_object_file(source, object)) {
+                        if (!build_object_file(&source, &object)) {
                             bil_defer_status(BIL_EXIT_FAILURE);
                         }
                 }
             } bil_workflow_end(WORKFLOW_NO_TIME);
         }
-        if (aleph.update || build_flag) {
+        if (aleph.update) {
             common_build_options(&cmd);
             bil_cmd_append(&cmd, OBJ);
             bil_cmd_append(&cmd, "-o", TARGET);
@@ -95,8 +124,7 @@ int main(int argc, char **argv) {
             bil_report(BIL_INFO, "No changes");
         }
     } 
-    defer: {
+    defer:
         bil_workflow_end();
         return status;
-    }
 }

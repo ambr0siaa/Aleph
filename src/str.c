@@ -8,6 +8,13 @@ String_View string_view(const char *cstr) {
     };
 }
 
+String_View sv_from_parts(const char *cstr, size_t len) {
+    return (String_View) {
+        .count = len,
+        .items = cstr
+    };
+}
+
 String_Builder string_builder(char *cstr) {
     String_Builder sb = {.count = strlen(cstr), .capacity = SB_CAPACITY};
     while (sb.count > sb.capacity) {sb.capacity *= 2;}
@@ -47,18 +54,31 @@ String_View sb_to_sv(String_Builder sb) {
 
 void sv_trim_left(String_View *sv) {
     size_t i = 0;
-    for (; i < sv->count && isspace(sv->items[i]); ++i);
-    sv->count -= i;
-    sv->items += i;
+    for (; i < sv->count
+        && (sv->items[i] != '\n'
+        ||  sv->items[i] != '\r')
+        && isspace(sv->items[i]);
+        ++i);
+    sv_shift_left(sv, i);
 }
 
 void sv_trim_right(String_View *sv) {
     size_t i = 0;
-    for (; i < sv->count && isspace(sv->items[sv->count - i - 1]); ++i);
+    for (; i < sv->count 
+        && (sv->items[sv->count - i - 1] != '\n'
+        ||  sv->items[sv->count - i - 1] != '\r')
+        && isspace(sv->items[sv->count - i - 1]);
+        ++i);
     sv->count -= i;
 }
-
+  
+// Note: do not cut return or carriage return characters
 void sv_trim(String_View *sv) {
     sv_trim_right(sv);
     sv_trim_left(sv);
+}
+
+void sv_shift_left(String_View *sv, size_t shift) {
+    sv->items += shift;
+    sv->count -= shift;
 }
