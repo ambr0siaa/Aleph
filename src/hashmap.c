@@ -2,80 +2,73 @@
 
 #define index_step(i) (i * i)
 
-#define hmins_itm(m, i) ({ \
+#define mapins_itm(m, i) ({ \
     map_header item_ = { .hash = (i)->hash, .size = (i)->size }; \
-    item_data(item_, (i)->data); hm_insert((m), &item_); \
+    item_data(&(m)->allocs, item_, (i)->data); map_insert_((m), &item_); \
 })
 
-void hm_init(Map *m, size_t capacity) {
+void map_init_(Map *m, size_t capacity) {
     size_t size = sizeof(*m->items)*capacity;
-    m->items = (map_header*)malloc(size);
+    m->items = (map_header*)arena_alloc(&m->allocs, size);
     memset(m->items, 0, size);
     m->capacity = capacity;
 }
 
-void hm_free(Map *m) {
-    for (size_t i = 0; i < m->capacity; ++i)
-        if (m->items[i].hash != 0) free((m)->items[i].data);
-    free(m->items); m->items = NULL;
-    m->capacity = 0;
-}
-
-void hm_insert(Map *m, map_header *itm) {
+void map_insert_(Map *m, map_header *itm) {
     size_t idx = itm->hash % m->capacity;
-    map_header *cur = hm_item(m->items, idx);
+    map_header *cur = map_item(m->items, idx);
     if (cur->hash == 0) {
         *cur = *itm;
     } else {
         size_t step = index_step(idx);
-        map_header *slot = hm_item(cur, 1);
+        map_header *slot = map_item(cur, 1);
         for (;;) {
             if (slot >= m->items + m->capacity) {
-                hm_expand(m);
+                map_expand_(m);
                 idx = itm->hash % m->capacity;
-                cur = hm_item(m->items, idx);
-                slot = hm_item(cur, 1);
+                cur = map_item(m->items, idx);
+                slot = map_item(cur, 1);
             }
             if (slot->hash == 0) {
                 *slot = *itm;
                 break;
             } else {
-                slot = hm_item(slot, 1);
+                slot = map_item(slot, 1);
             }
-            slot = hm_item(slot, step);
+            slot = map_item(slot, step);
         }
     }
 }
 
-void hm_expand(Map *m) {
+void map_expand_(Map *m) {
     Map nt = {0};
-    hm_init(&nt, m->capacity*2);
+    map_init_(&nt, m->capacity*2);
     for (size_t j = 0; j < m->capacity; ++j) {
-        map_header *itm = hm_item(m->items, j);
-        if (itm->hash != 0) hmins_itm(&nt, itm);
+        map_header *itm = map_item(m->items, j);
+        if (itm->hash != 0) mapins_itm(&nt, itm);
     }
-    hm_free(m);
+    map_free(m);
     *m = nt;
 }
 
-int hm_search(Map *m, const char *key, size_t len, size_t *index) {
+int map_search_(Map *m, const char *key, size_t len, size_t *index) {
     hash_t hash = hash_string(key, len);
     size_t idx = hash % m->capacity;
-    map_header *cur = hm_item(m->items, idx);
+    map_header *cur = map_item(m->items, idx);
     if (cur->hash == hash) {
         *index = idx;
         return 1;
     } else {
         size_t step = index_step(idx);
-        map_header *slot = hm_item(cur, 1);
+        map_header *slot = map_item(cur, 1);
         while (slot < m->items + m->capacity) {
             if (slot->hash == hash) {
                 *index = idx + (size_t)(slot - cur);
                 return 1;
             } else {
-                slot = hm_item(slot, 1);
+                slot = map_item(slot, 1);
             }
-            slot = hm_item(slot, step);
+            slot = map_item(slot, step);
         }
         return 0;
     }

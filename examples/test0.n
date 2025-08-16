@@ -1,13 +1,5 @@
-main:fn = void -> int (     # Start main func
-    a:str = "Hello, Vlad"
-    b:int = 142
-    print(a)
-)
+// Simple hello world
 
-#>
-
-And now we can run the main function
-
-<#
-
-main()
+void main() {
+    putstr("Hello, Vlad!\n");
+}

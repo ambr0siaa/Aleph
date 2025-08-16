@@ -1,84 +1,53 @@
 #include "str.h"
 
+String *string(Arena *a, char *cstr, size_t len) {
+    String *s = arena_alloc(a, sizeof(String));
+    arena_da_append_many(a, s, cstr, len);
+    arena_da_append(a, s, '\0');
+    return s;
+}
 
-String_View string_view(const char *cstr) {
-    return (String_View) {
+Slice slice(const char *cstr) {
+    return (Slice) {
         .count = strlen(cstr),
         .items = cstr
     };
 }
 
-String_View sv_from_parts(const char *cstr, size_t len) {
-    return (String_View) {
+Slice slice_parts(const char *cstr, size_t len) {
+    return (Slice) {
         .count = len,
         .items = cstr
     };
 }
 
-String_Builder string_builder(char *cstr) {
-    String_Builder sb = {.count = strlen(cstr), .capacity = SB_CAPACITY};
-    while (sb.count > sb.capacity) {sb.capacity *= 2;}
-    sb.items = malloc(sizeof(char)*sb.count + 1);
-    memcpy(sb.items, cstr, sb.count);
-    return sb;
-}
-
-String_Builder sb_from_cstr(char *cstr) {
-    String_Builder sb = {.count = strlen(cstr), .capacity = SB_CAPACITY};
-    while (sb.count > sb.capacity) {sb.capacity *= 2;}
-    sb.items = cstr;
-    return sb;
-}
-
-void sb_clean(String_Builder *sb) {
-    free(sb->items);
-    sb->capacity = 0;
-    sb->count = 0;
-}
-
-void sb_join_null(String_Builder *sb) {
-    sb->count++;
-    if (sb->count > sb->capacity) {
-        sb->capacity += 1;
-        sb->items = realloc(sb->items, sizeof(char)*sb->count);
-    }
-    sb->items[sb->count - 1] = '\0';
-}
-
-String_View sb_to_sv(String_Builder sb) {
-    return (String_View) {
-        .count = sb.count,
-        .items = sb.items
-    };
-}
-
-void sv_trim_left(String_View *sv) {
+void slice_trim_left(Slice *slice) {
     size_t i = 0;
-    for (; i < sv->count
-        && (sv->items[i] != '\n'
-        ||  sv->items[i] != '\r')
-        && isspace(sv->items[i]);
+    for (; i <= slice->count
+        && slice->items[i] != '\n'
+        && slice->items[i] != '\r'
+        && isspace(slice->items[i]);
         ++i);
-    sv_shift_left(sv, i);
+    slice_shift(slice, i);
 }
 
-void sv_trim_right(String_View *sv) {
+void slice_trim_right(Slice *slice) {
     size_t i = 0;
-    for (; i < sv->count 
-        && (sv->items[sv->count - i - 1] != '\n'
-        ||  sv->items[sv->count - i - 1] != '\r')
-        && isspace(sv->items[sv->count - i - 1]);
+    for (; i <= slice->count 
+        && slice->items[slice->count - i - 1] != '\n'
+        && slice->items[slice->count - i - 1] != '\r'
+        && isspace(slice->items[slice->count - i - 1]);
         ++i);
-    sv->count -= i;
+    slice->count -= i;
 }
   
 // Note: do not cut return or carriage return characters
-void sv_trim(String_View *sv) {
-    sv_trim_right(sv);
-    sv_trim_left(sv);
+void slice_trim(Slice *slice) {
+    slice_trim_right(slice);
+    slice_trim_left(slice);
 }
 
-void sv_shift_left(String_View *sv, size_t shift) {
-    sv->items += shift;
-    sv->count -= shift;
+void slice_shift(Slice *slice, size_t shift) {
+    slice->items += shift;
+    slice->count -= shift;
 }

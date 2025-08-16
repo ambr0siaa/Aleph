@@ -1,8 +1,7 @@
 #ifndef STR_H_
 #define STR_H_
 
-
-#include <stdlib.h>
+#include "arena.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -10,30 +9,24 @@
 #define Str_Args(s) (int)(s).count, (s).items
 
 typedef struct {
-    size_t count;
+    size_t     count;
     const char *items;
-} String_View;
+} Slice;
 
-String_View string_view(const char *cstr);
-String_View sv_from_parts(const char *cstr, size_t len);
-
-void sv_trim_left(String_View *sv);
-void sv_trim_right(String_View *sv);
-void sv_trim(String_View *sv);
-void sv_shift_left(String_View *sv, size_t shift);
+typedef Slice CString; // Constant string
 
 typedef struct {
     size_t count;
     size_t capacity;
-    char *items;
-} String_Builder;
+    char   *items;
+} String;             // Dynamic terminated string
 
-#define SB_CAPACITY 128
+extern Slice slice(const char *cstr);
+extern Slice slice_parts(const char *cstr, size_t len);
+extern void  slice_trim_left(Slice *s);
+extern void  slice_trim_right(Slice *s);
+extern void  slice_trim(Slice *s);
+extern void  slice_shift(Slice *s, size_t shift);
 
-String_Builder string_builder(char *cstr);
-String_Builder sb_from_cstr(char *cstr);
-String_View sb_to_sv(String_Builder sb);
-void sb_join_null(String_Builder *sb);
-void sb_clean(String_Builder *sb);
-
+extern String *string(Arena *a, char *cstr, size_t len);
 #endif // STR_H_

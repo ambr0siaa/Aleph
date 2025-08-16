@@ -1,0 +1,78 @@
+import "String";
+
+module List {
+    private struct @Generic Node {
+        data:@Type,
+        next:&Node
+    }
+    
+    struct @Generic List {
+        head, tail:&Node<@Type>
+    }
+
+    void push(list:@Self &List<@Type>, arg:@Type) {
+        if list == none {
+            list = new(List<@Type>); 
+            list->head = list->tail = new(Node<@Type>);
+            liat->head->data = arg;
+        } else {
+            node:Node<@Type> = new(Node<@Type>);
+            node->data = arg;
+            node->next = list->head;
+            list->head = node;
+        }
+    }
+
+    void pushback(list:@Self &List<@Type>, arg:@Type) {
+        if list == none {
+            list = new(List<@Type>); 
+            list->head = list->tail = new(Node<@Type>);
+            liat->head->data = arg;
+        } else {
+            node:Node<@Type> = new(Node<@Type>);
+            node->data = arg;
+            list->tail->next = node;
+            list->tail = node;
+        }
+
+    }
+
+    void insert(list:&List<@Type> @Self, args:@Variadic) {
+        length:uint = args.len();
+        for i:uint in 0..length {
+            if (args.typecmp(list->head) != true) {
+                print("Error: structure has type `%t` but provided `%t`"
+                        String::strtype(list->head), String::strtype(args->items[0]));
+                return;
+            }
+            list.push(args->items[i]);
+        }
+    }
+
+    void print(list:@Self &List<@Type>) {
+        cur:Node<@Type>& = list->head;
+        while (cur) {
+            print("%T\n", cur->data);
+            cur = cur->next;
+        }
+    }
+}
+
+void main() {
+    list:List::List<int> = new(List::List);
+    list.List::push(6);
+    list.List::pushback(1);
+    list.List::pushback(2);
+    list.List::print();
+
+/* Another variant of using this module
+
+    from List import *;
+
+    list:List<int> = new(List<int>);
+    list.push(6);
+    list.pushback(1);
+    list.pushback(2);
+    list.print();
+*/
+}
