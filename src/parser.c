@@ -1,14 +1,65 @@
 #include <assert.h>
-#include "parser.h"
 #include "lexer.h"
+#include "core.h"
 
 /*
  *      Utils
  */
 
+#define ENTRY_FUNCTION (CString) { .items = "main", .count = 4 }
+
 const char *builtin_types[BUILTIN_TYPES_COUNT] = {
     "void", "int", "uint", "flt", "bool", "char"
 };
+
+ALF_FUNC Module *globmod_init(void) {
+    Arena a = {0};
+    Module *m = arena_alloc(&a, sizeof(Module));
+    map_init(&m->typetable, BUILTIN_TYPES_COUNT*3);
+    Fundef *putstr = arena_alloc(&a, sizeof(Fundef));
+    putstr->bltin = 1;
+    map_init(&m->callstack, 8);
+    mapins(&m->callstack, "putstr", 6, putstr);
+    for (size_t i = 0; i < BUILTIN_TYPES_COUNT; ++i)
+        map_ins(&m->typetable, builtin_types[i], &i);
+    m->entry = 1;
+    m->a = a;
+    return m;
+}
+
+ALF_FUNC Context *context_init(Module *m) {
+    Context *c = arena_alloc(&m->a, sizeof(Context));
+    c->codesize = c->datasize = 0;
+    c->codeptr = c->dataptr = 0;
+    c->code = NULL;
+    c->data = NULL;
+    c->module = m;
+    return c;
+}
+
+ALF_FUNC void alf_inst_init(Arena *a, Alf_State *alf) {
+    alf->code = arena_alloc(a, sizeof(void*));
+    alf->data = arena_alloc(a, sizeof(void*));
+}
+
+ALF_FUNC Fundef *fundef_search(Module *m, CString *name) {
+    Fundef *f = NULL;
+    map_strget(&m->callstack, name->items, name->count, f);
+    return f;
+}
+
+void context_push_inst(Arena *a, Context *c, Opcode o) {
+    arena_da_append_parts(a, c->code, c->codeptr, c->codesize, (Instruction)(o));
+}
+
+void context_push_data(Arena *a, Context *c, StkVal v) {
+    arena_da_append_parts(a, c->data, c->dataptr, c->datasize, v);
+}
+
+ALF_FUNC void module_push_func(Module *m, Fundef *f) {
+    (void)m; (void)f;
+    alf_panic(Err_Fmt, "Could not store non-entry function call");
+}
 
 ALF_FUNC alf_uint *typeget(Map *t, CString *key) {
     alf_uint *id;
@@ -23,88 +74,17 @@ ALF_FUNC int checktype(Map *m, CString *name) {
     else return 1;
 }
 
-ALF_FUNC Context *context_init(Module *m) {
-    Context *c = arena_alloc(&m->a, sizeof(Context));
-    c->codesize = c->datasize = 0;
-    c->codeptr = c->dataptr = 0;
-    c->code = NULL;
-    c->data = NULL;
-    c->module = m;
-    return c;
-}
-
-ALF_FUNC Fundef *fundef_search(Module *m, CString *name) {
-    Fundef *f = NULL;
-    map_strget(&m->callstack, name->items, name->count, f);
-    return f;
-}
-
-void cntx_pushinst(Arena *a, Context *c, Opcode o) {
-    arena_da_append_parts(a, c->code, c->codeptr, c->codesize, o);
-}
-
-void cntx_pushdata(Arena *a, Context *c, StkVal v) {
-    arena_da_append_parts(a, c->data, c->dataptr, c->datasize, v);
-}
-
-/*
- *      Core
- */ 
-
-ALF_FUNC StkVal vm_popdata(Context *c) {
-    assert(c->dataptr != 0 && "Could not pop empty data value");
-    StkVal result = c->data[--c->dataptr];
-    return result;
-}
-
-ALF_FUNC Opcode vm_popinst(Context *c) {
-    assert(c->codeptr != 0 && "Could not pop empty instruction");
-    Instruction result = c->code[--c->codeptr];
-    return instext(result);
-}
-
-typedef void (bltinfn)(Alf_State *a, Context *c);
-
-void putstr(Alf_State *a, Context *c) {
-    String *s = vm_popdata(c).s;
-    char *p = s->items;
-    while (*p) putchar(*p++);
-}
-
-ALF_FUNC void vm_instexec(Alf_State *alf, Context *c, alf_byte mode) {
-        Opcode op = vm_popinst(c);
-        switch (op) {
-            case OP_CALL: {
-                break;
-            }
-            case OP_BLTIN: {
-                Address a = vm_popdata(c).u;
-                if (a == 0) putstr(alf, c);
-                else {
-                    alf_panic("TODO", "Not implemented other built-in functions");
-                    alf->status = ALF_STATUS_FCK;
-                }
-                break;
-            }
-            default: {
-                alf_panic("TODO:", "Not supported rest of instructions");
-                alf->status = ALF_STATUS_FCK;
-                return;
-            }
-        }
-}
-
-ALF_FUNC void vm_pushfunc(Module *m, Fundef *f) {
-    (void)m; (void)f;
-    alf_panic(Err_Fmt, "Could not store non-entry function call");
-}
-
-ALF_FUNC void vm_load_func(Alf_State *a, Fundef *f) {
-
-}
-
-ALF_FUNC void vm_run_program(Alf_State *a) {
-
+ALF_FUNC void alf_load_func(Arena *a, Alf_State *alf, Fundef *f) {
+    if (!f) return;
+    Context *c = f->c;
+    f->addr = alf->codeptr;
+    if (!alf->code) {
+        assert(!alf->data);
+        alf_inst_init(a, alf);
+    }
+    arena_da_append_parts(a, alf->code, alf->codeptr, alf->codesize, c->code);
+    arena_da_append_parts(a, alf->data, alf->dataptr, alf->datasize, c->data);
+    assert(alf->codeptr == alf->dataptr);
 }
 
 /*
@@ -191,23 +171,34 @@ ALF_FUNC void fundef(Module *m, Lexer *l, Token *t, CString *name) {
     alf_uint *type = typeget(typetable, &t->text);
     if (type == NULL) {
         alf->status = ALF_STATUS_FCK;
-        panic(&t->loc,
-              "Unknown type `"Str_Fmt"`", 
+        panic(&t->loc, "Unknown type `"Str_Fmt"`", 
               Str_Args(t->text));
         return;
-    } 
+    }
     f.type = *type;
     lexer_expect(l, TK_OPAREN);
     if (lexer_failer(l)) return;
     // TODO: Parse arguments
     lexer_expect(l, TK_CPAREN);
     if (lexer_failer(l)) return;
+    if (lexer_check(l, TK_SEMICOLON)) {
+        lexer_next(l); // Skip semicolon
+        panic(&t->loc, "TODO: not implemented function declaration");
+        alf->status = ALF_STATUS_FCK;
+        return;
+    }
     Context *body = context_init(m);
     f.c = body;
     lexer_expect(l, TK_OCURLY);
     if (lexer_failer(l)) return;
     parse_context(body, l);
-    mapins(&m->callstack, name->items,
+    if (str_cmp(name, &ENTRY_FUNCTION)) {
+        context_push_inst(&m->a, body, OP_HLT);
+    } else {
+        context_push_inst(&m->a, body, OP_RET);
+    }
+    mapins(&m->callstack,
+           name->items,
            name->count, &f);
     lexer_expect(l, TK_CCURLY);
 }
@@ -221,23 +212,28 @@ ALF_FUNC void parse_expr(Context *c, Lexer *l) {
         case EXPR_FUNCALL: {
             Funcall *fc = e.fc;
             Fundef *f = fundef_search(m, &fc->name);
-            if (!f) {
+            if (f == NULL) {
                 alf->status = ALF_STATUS_FCK;
-                alf_panic(Err_Fmt, "Call to not define function `"Str_Fmt"`",
+                alf_panic(Err_Fmt,
+                          "Call to not define function `"Str_Fmt"`",
                           Str_Args(fc->name));
                 return;
             }
             if (!f->bltin) {
-                cntx_pushinst(&m->a, c, OP_CALL);
-                if (!f->used) { f->used = 1; vm_pushfunc(m, f); }
+                context_push_inst(&m->a, c, OP_CALL);
+                if (!f->used) {
+                    f->used = 1;
+                    alf_load_func(&m->a, alf, f);
+                }
+            } else {
+                context_push_inst(&m->a, c, OP_BLTIN);
             }
-            else cntx_pushinst(&m->a, c, OP_BLTIN);
-            cntx_pushdata(&m->a, c, StkUint(f->addr));
+            context_push_data(&m->a, c, StkUint(f->addr));
             for (size_t i = 0; i < fc->count; ++i) {
                 Expr arg = fc->items[i];
                 switch (arg.t) {
                     case EXPR_STR: {
-                        cntx_pushdata(&m->a, c, StkStr(arg.s));
+                        context_push_data(&m->a, c, StkStr(arg.s));
                         break;
                     } default: {
                         alf->status = ALF_STATUS_FCK;
@@ -262,6 +258,10 @@ void parse_statement(Context *c, Lexer *l) {
     Alf_State *alf = l->alf;
     Token fst = lexer_peek(l);
     switch (fst.type) {
+        case TK_ID: {
+            parse_expr(c, l);
+            break;
+        }
         case TK_IF: {
             panic(&fst.loc, "TODO: `if` stmt not implemented");
             break; 
@@ -270,20 +270,8 @@ void parse_statement(Context *c, Lexer *l) {
             panic(&fst.loc, "TODO: `while` stmt not implemented");
             break; 
         }
-        case TK_ID: {
-            parse_expr(c, l); // Parse single expression
-            break;
-        }
         case TK_RETURN: {
             panic(&fst.loc, "TODO: `return` stmt not implemented");
-            break; 
-        }
-        case TK_MODULE: {
-            panic(&fst.loc, "TODO: `module` stmt not implemented");
-            break; 
-        }
-        case TK_IMPORT: {
-            panic(&fst.loc, "TODO: `import` stmt not implemented");
             break; 
         }
         default: {
@@ -299,23 +287,22 @@ ALF_FUNC void parse_primary_stmt(Module *m, Lexer *l) {
     Alf_State *alf = l->alf;
     Token fst = lexer_peek(l);
     switch (fst.type) {
-        case TK_INT:  case TK_FLT:  case TK_BOOL:
-        case TK_UINT: case TK_CHAR: case TK_VOID: case TK_ID: {
+        case TK_ID: {
             if (checktype(&m->typetable, &fst.text)) {
                 lexer_next(l); // Skip type
                 Token name = lexer_expect(l, TK_ID);
                 if (lexer_failer(l)) {
                     panic(&name.loc,
-                          "Expected for variable or function"
-                          "identifier, but proivded '%s'",
-                          token_type_as_cstr(name.type));
-                    alf->status = ALF_STATUS_FCK;
-                    return;
+                          "Expected name of function definition,"
+                          "but provided token:%s:\""Str_Fmt"\"",
+                          token_type_as_cstr(name.type),
+                          Str_Args(name.text));
+                    goto defer;
                 }
                 fundef(m, l, &fst, &name.text);
             } else {
-                alf->status = ALF_STATUS_FCK;
-                panic(&fst.loc, "function declaration");
+                panic(&fst.loc, "Expected type for function definition");
+                goto defer;
             }
             break;
         }
@@ -328,10 +315,15 @@ ALF_FUNC void parse_primary_stmt(Module *m, Lexer *l) {
             break; 
         }
         default: {
-            panic(&fst.loc, "Unknown statement started from token `"Str_Fmt"`",
-                          fst.text);
-            alf->status = ALF_STATUS_FCK;
-            return;
+            panic(&fst.loc,
+                  "Expected module | import | function definition."
+                  "Provided token:%s:\""Str_Fmt"\" for unknown"
+                  "primary statement", token_type_as_cstr(fst.type),
+                  Str_Args(fst.text));
+            defer: {
+                alf->status = ALF_STATUS_FCK;
+                return;
+            }
         }
     }
 
@@ -350,38 +342,35 @@ ALF_FUNC void parse_module(Module *m, Lexer *l) {
  *      Start work
  */
 
-ALF_FUNC Module *global_module_init(void) {
-    Arena a = {0};
-    Module *m = arena_alloc(&a, sizeof(Module));
-    Fundef *putstr = arena_alloc(&a, sizeof(Fundef));
-    putstr->bltin = 1;
-    mapins(&m->callstack, "putstr", 6, putstr);
-    map_init(&m->typetable, BUILTIN_TYPES_COUNT*3);
-    for (size_t i = 0; i < BUILTIN_TYPES_COUNT; ++i)
-        map_ins(&m->typetable, builtin_types[i], &i);
-    m->entry = 1;
-    m->a = a;
-    return m;
+
+ALF_FUNC void entry_point(Alf_State *a, Module *m) {
+    Fundef *entry = fundef_search(m, &ENTRY_FUNCTION);
+    if (!entry) {
+        a->status = ALF_STATUS_FCK;
+        alf_panic(Err_Fmt, "Could not find entry point."
+                           "Expected declaration of `main` function");
+    } else {
+        if (!a->code) {
+            assert(!a->data);
+            alf_inst_init(&m->a, a);
+        }
+        a->code[0] = entry->c->code;
+        a->data[0] = entry->c->data;
+    }
 }
 
-
-void mainfunc(Alf_State *alf, Reader *r) {
-    Lexer l = lexer_init(alf, r);
-    Module *m = global_module_init();
+void mainfunc(Alf_State *a, Reader *r) {
+    Lexer l = lexer_init(a, r);
+    Module *m = globmod_init();
     parse_module(m, &l);
-    if (alf->status) goto defer;
-    CString entry_func_name = (CString)slice_parts("main", 4);
-    Fundef *entry_func = fundef_search(m, &entry_func_name);
-    if (!entry_func) {
-        alf->status = ALF_STATUS_FCK;
-        alf_panic(Err_Fmt, "Could not find entry point."
-                           "Expected declaration of main function");
-        goto defer;
-    }
-    vm_load_func(alf, entry_func);
-    vm_run_program(alf);
-    defer:
+    alf_badcase(a); // Bad parsing?
+    entry_point(a, m);
+    alf_badcase(a); // No entry?
+    vm_run_program(a);
+    defer: {
+        map_free(&m->callstack);
         map_free(&m->typetable);
         map_free(&l.keywords);
         arena_free(&m->a);
+    }
 }

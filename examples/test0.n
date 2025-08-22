@@ -1,5 +1,15 @@
 // Simple hello world
 
+void g() {
+    putstr("Hello,");
+}
+
+void f() {
+    g();
+    putstr("World!");
+}
+
 void main() {
-    putstr("Hello, Vlad!\n");
+    f();
+    putstr("\n");
 }

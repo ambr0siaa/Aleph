@@ -24,11 +24,13 @@ typedef struct {
     const char  *file;
 } Location;
 
-// 48
+// 52
 typedef enum {
+    OP_PUSH,
     OP_POP,
     OP_STR,
     OP_PULL,
+    OP_LOAD,
     OP_BLTIN,
     OP_JZ,
     OP_JNZ,
@@ -39,10 +41,12 @@ typedef enum {
     OP_SUBI,
     OP_DIVI,
     OP_MULI,
+    OP_MODI,
     OP_ADDU,
     OP_SUBU,
     OP_DIVU,
     OP_MULU,
+    OP_MODU,
     OP_ADDF,
     OP_SUBF,
     OP_DIVF,
@@ -86,18 +90,26 @@ typedef union {
 
 typedef alf_byte Instruction;
 
-#define instdef(o) ((Instuction)0 | (o))
+#define instdef(o) ((Instuction)(o))
 #define instext(i) (Opcode)((i) & 0x3f)
 
 typedef struct {
-    Address     entry;
     alf_byte    status;
+    alf_uint    fnid;
     alf_uint    stksize;
-    Address     sp, fp;
+    Address     fp, ip;
+    Address     sp, lp, dp;
+    alf_uint    datasize;
+    alf_uint    codesize;
+    alf_uint    codeptr;
+    alf_uint    dataptr;
     const char  *program;
+    Instruction **code;
+    StkVal      **data;
     StkVal      *stack;
 } Alf_State;
 
 #define alf_defer(a, s) { (a)->status = (s); goto defer; }
+#define alf_badcase(a)  if (a->status) goto defer; 
 
 #endif // COMMON_H_

@@ -21,12 +21,13 @@ typedef struct {
     char   *items;
 } String;             // Dynamic terminated string
 
-extern Slice slice(const char *cstr);
-extern Slice slice_parts(const char *cstr, size_t len);
-extern void  slice_trim_left(Slice *s);
-extern void  slice_trim_right(Slice *s);
-extern void  slice_trim(Slice *s);
-extern void  slice_shift(Slice *s, size_t shift);
-
+extern Slice  slice(const char *cstr);
+extern Slice  slice_parts(const char *cstr, size_t len);
+extern void   slice_trim_left(Slice *s);
+extern void   slice_trim_right(Slice *s);
+extern void   slice_trim(Slice *s);
+extern void   slice_shift(Slice *s, size_t shift);
+extern int    str_cmp(CString *s1, CString *s2);
 extern String *string(Arena *a, char *cstr, size_t len);
+
 #endif // STR_H_

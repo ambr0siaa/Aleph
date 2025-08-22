@@ -33,8 +33,7 @@ extern void *arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t 
 
 #define ARENA_DA_INIT_CAP 32
 
-#define arena_da_append(a, da, item) \
-    do { \
+#define arena_da_append(a, da, item) do { \
         if ((da)->count + 1 >= (da)->capacity) { \
             size_t old_size = (da)->capacity*sizeof(*(da)->items); \
             (da)->capacity = (da)->capacity == 0 ? ARENA_DA_INIT_CAP : (da)->capacity*2; \
@@ -43,8 +42,7 @@ extern void *arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t 
         (da)->items[(da)->count++] = (item); \
     } while(0)
 
-#define arena_da_append_many(a, da, item, item_count) \
-    do { \
+#define arena_da_append_many(a, da, item, item_count) do { \
         if ((da)->count + (item_count) >= (da)->capacity) { \
             size_t old_size = (da)->capacity*sizeof(*(da)->items); \
             (da)->capacity = (da)->capacity == 0 ? ARENA_DA_INIT_CAP : (da)->capacity; \
@@ -55,8 +53,7 @@ extern void *arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t 
         (da)->count += (item_count); \
     } while(0)
 
-#define arena_da_append_parts(a, items, count, cap, item) \
-    do { \
+#define arena_da_append_parts(a, items, count, cap, item) do { \
         if ((count) + 1 >= (cap)) { \
             size_t itm_sz = sizeof(*(items)); \
             size_t old_size = (cap)*itm_sz; \

@@ -2,8 +2,7 @@
 #include "panic.h"
 
 static const char *keywords[] = {
-    "if",   "else", "elif", "while", "int",
-    "uint", "flt", "char", "bool", "void", "true",
+    "if",   "else", "elif", "while", "true",
     "false", "module", "import", "return"
 };
 
@@ -221,12 +220,6 @@ const char *token_type_as_cstr(Token_Type t) {
         case TK_ELSE:      return "else"; 
         case TK_ELIF:      return "elif"; 
         case TK_WHILE:     return "while"; 
-        case TK_INT:       return "int"; 
-        case TK_UINT:      return "uint"; 
-        case TK_FLT:       return "flt"; 
-        case TK_CHAR:      return "char"; 
-        case TK_BOOL:      return "bool"; 
-        case TK_VOID:      return "void"; 
         case TK_MODULE:    return "module"; 
         case TK_IMPORT:    return "import"; 
         case TK_RETURN:    return "return"; 
@@ -267,12 +260,10 @@ void lexer_token_print(Token *tk) {
         case TK_GT:         printf("'>'");   break;
         case TK_EOF:        printf("'eof'"); break;
         case TK_NUMLIT: case TK_STRLIT: case TK_TRUE:
-        case TK_FALSE:  case TK_ID:     case TK_IF:     case TK_ELSE:
-        case TK_ELIF:   case TK_WHILE:  case TK_INT:    case TK_UINT:
-        case TK_FLT:    case TK_CHAR:   case TK_BOOL:
-        case TK_VOID:   case TK_MODULE:
-        case TK_IMPORT: case TK_RETURN: printf("'"Str_Fmt"'", Str_Args(tk->text)); break;
-
+        case TK_FALSE:  case TK_ID:     case TK_IF:
+        case TK_ELSE:   case TK_ELIF:   case TK_WHILE:
+        case TK_MODULE: case TK_IMPORT: case TK_RETURN:
+            printf("'"Str_Fmt"'", Str_Args(tk->text)); break;
         default: {
             printf("Unknown token type `%u`", tk->type);
             break;
@@ -285,7 +276,9 @@ void lexer_view(Lexer *l) {
     for (;;) {
         Token tk = lexer_next(l);
         if (lexer_failer(l)) {
-            fprintf(stderr, "%zu:%zu:Unknown character `%c`", tk.loc.line, tk.loc.offset, l->current);
+            fprintf(stderr,
+                    "%zu:%zu:Unknown character `%c`",
+                    tk.loc.line, tk.loc.offset, l->current);
             return;
         }
         if (tk.type == TK_EOF) break;

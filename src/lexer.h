@@ -15,8 +15,7 @@ typedef enum {
     TK_SEMICOLON, TK_COLON, TK_DOT, TK_ASSIGN, TK_EQ, TK_LE, TK_LT, TK_GE, TK_GT,
     
     // Keywords: only in this order
-    TK_IF, TK_ELSE, TK_ELIF, TK_WHILE, TK_INT, TK_UINT,
-    TK_FLT, TK_CHAR, TK_BOOL, TK_VOID, TK_TRUE,
+    TK_IF, TK_ELSE, TK_ELIF, TK_WHILE, TK_TRUE,
     TK_FALSE, TK_MODULE, TK_IMPORT, TK_RETURN,
 
     TK_EOF,

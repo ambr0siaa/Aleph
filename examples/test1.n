@@ -1,0 +1,13 @@
+void a() {
+    putstr("Amma ");
+}
+
+void b() {
+    a();
+    putstr("alive ");
+}
+
+void main() {
+    b();
+    putstr("on this computer ;3 \n");
+}

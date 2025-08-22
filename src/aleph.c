@@ -17,8 +17,10 @@ ALF_FUNC void alf_usage(const char *program) {
 
 ALF_FUNC Alf_State alf_state(const char *program) {
     Alf_State alf = {0};
+    alf.codesize = alf.datasize = 1;
     alf.program = program;
     alf.status = ALF_STATUS_OK;
+    alf.codeptr = alf.dataptr = 1;
     return alf;
 }
 
@@ -42,7 +44,8 @@ int main(int argc, char **argv) {
     }
     reader_read(&reader);
     mainfunc(&alf, &reader);
-    defer:
+    defer: {
         reader_clean(reader);
         return alf.status;
+    }
 }

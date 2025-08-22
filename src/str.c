@@ -1,10 +1,53 @@
 #include "str.h"
 
+int str_cmp(CString *s1, CString *s2) {
+    if (s1->count == s2->count) {
+        return strncmp(s1->items, s2->items, s1->count) == 0;
+    } else {
+        return 0;
+    }
+}
+
+char interpolate_esc_char(char c) {
+    switch (c) {
+        case 'a': return '\a';
+        case 'b': return '\b';
+        case 'e': return '\e';
+        case 'f': return '\f';
+        case 'n': return '\n';
+        case 'r': return '\r';
+        case 't': return '\t';
+        case 'v': return '\v';
+        case '"': return '\"';
+        case '\'': return '\'';
+        case '\\': return '\\';
+        default: return c;
+    }
+}
+
 String *string(Arena *a, char *cstr, size_t len) {
     String *s = arena_alloc(a, sizeof(String));
-    arena_da_append_many(a, s, cstr, len);
-    arena_da_append(a, s, '\0');
-    return s;
+    size_t i = 0;
+    size_t j = i;
+    for (; i < len; ++i) {
+        if (cstr[i] == '\\') {
+            arena_da_append_many(a, s, cstr + j, i - j);
+            j = i;
+            if (i + 1 < len) {
+                arena_da_append(a, s, interpolate_esc_char(cstr[i + 1]));
+                j += 2;
+            } else {
+                arena_da_append(a, s, '\\');
+                goto defer;            
+                break;
+            }
+        }
+    }
+    arena_da_append_many(a, s, cstr + j, i - j);
+    defer: {
+        arena_da_append(a, s, '\0');
+        return s;
+    }
 }
 
 Slice slice(const char *cstr) {

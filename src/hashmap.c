@@ -15,6 +15,10 @@ void map_init_(Map *m, size_t capacity) {
 }
 
 void map_insert_(Map *m, map_header *itm) {
+    if (!m->items) {
+        fprintf(stderr, "error: used uninitialized map\n");
+        return;
+    }
     size_t idx = itm->hash % m->capacity;
     map_header *cur = map_item(m->items, idx);
     if (cur->hash == 0) {

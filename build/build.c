@@ -1,6 +1,6 @@
-#define IMPLEMENTATION
+#define BIL_IMPLEMENTATION
 #include "bil.h"
-#define STRIP_NAMESPACE
+#define BIL_STRIP_NAMESPACE
 
 #define CC     "gcc"
 #define OFLAGS "-O3", "-pipe", "-fPIE", "-march=native", "-mtune=native"
@@ -9,17 +9,17 @@
 #define TARGET "bin/aleph"
 
 #define SRC "src/aleph.c", "src/str.c", "src/hashmap.c", "src/lexer.c", \
-            "src/reader.c", "src/arena.c", "src/panic.c", "src/parser.c"
+            "src/reader.c", "src/arena.c", "src/panic.c", "src/parser.c", "src/core.c"
 
 #define OBJ "src/aleph.o", "src/str.o", "src/hashmap.o", "src/lexer.o", \
-            "src/reader.o", "src/arena.o", "src/panic.o", "src/parser.o"
+            "src/reader.o", "src/arena.o", "src/panic.o", "src/parser.o", "src/core.o"
 
 #define HDR "src/common.h", "src/str.h", "src/hashmap.h", "src/lexer.h", \
-            "src/reader.h", "src/arena.h",  "src/panic.h", "src/parser.h"
+            "src/reader.h", "src/arena.h",  "src/panic.h", "src/parser.h", "src/core.h"
 
 #define DIR "bin"
 
-static int g_flag, build_flag, o_flag;
+static int g_flag, build_flag, o_flag, c_flag;
 
 BILFN void common_build_options(Cmd *cmd) {
     cmd_append(cmd, CC);
@@ -45,12 +45,22 @@ BILFN void parse_cmd_args(int *argc, char ***argv) {
                 case 'b': build_flag = 1; break;
                 case 'g': g_flag = 1;     break;
                 case 'o': o_flag = 1;     break;
+                case 'c': {
+                    c_flag = 1;
+                    switch (arg[2]) {
+                        case 'o': c_flag |= 2; break;
+                        default: break;
+                    }
+                    break;
+                }
                 case 'h': {
-                    report(BIL_INFO, "Usage:\n"
-                               "-b    build whole project without checking dependencies\n"
-                               "-o    include optimisation flags to building process\n"
-                               "-g    invlude debug information to buildgin process\n"
-                               "-h    print this usage");
+                    report(BIL_INFO,
+                           "Usage:\n"
+                           "-b    build whole project without checking dependencies\n"
+                           "-o    include optimisation flags to building process\n"
+                           "-g    invlude debug information to buildgin process\n"
+                           "-c    cleans all obj files and binarys\n"
+                           "-h    print this usage");
                     break;
                 }
                 default: { 
@@ -82,10 +92,20 @@ BILFN int build_project(void) {
     return EXIT_OK;
 }
 
+BILFN int clean_command(void) {
+    workflow_begin(); {
+        Cmd cmd = {0};
+        cmd_append(&cmd, "rm", "-rf", "test");
+        if (!cmd_run_sync(&cmd)) return EXIT_FAILURE;
+    } workflow_end(WORKFLOW_NO_TIME);
+    return EXIT_SUCCESS;
+}
+
 int main(int argc, char **argv) {
     SCRIPT_REBUILD(argc, argv, DIR);
     int status = EXIT_OK;
     parse_cmd_args(&argc, &argv);
+    if (c_flag) return clean_command();
     if (build_flag) return build_project();
     workflow_begin(); {
         Cmd cmd = {0};
