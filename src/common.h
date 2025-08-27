@@ -1,6 +1,8 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+#include <assert.h>
+
 #include "hashmap.h"
 #include "arena.h"
 #include "str.h"
@@ -11,9 +13,6 @@ typedef unsigned char alf_byte;
 typedef long int      alf_int;
 typedef double        alf_flt;
 typedef unsigned char alf_bool;
-
-#define ALF_API  extern
-#define ALF_FUNC static inline
 
 #define ALF_STATUS_OK  0
 #define ALF_STATUS_FCK 1
@@ -111,5 +110,6 @@ typedef struct {
 
 #define alf_defer(a, s) { (a)->status = (s); goto defer; }
 #define alf_badcase(a)  if (a->status) goto defer; 
+#define alf_assert(e)   assert(e)
 
 #endif // COMMON_H_

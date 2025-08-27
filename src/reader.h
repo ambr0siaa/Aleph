@@ -7,8 +7,8 @@
 typedef struct {
     size_t     size;
     Arena      allocs;
-    const char *buf,
-               *file;
+    const char *buf;
+    const char *file;
 } Reader;
 
 #define reader_file(r, f)  ({ (r).file = (f); })

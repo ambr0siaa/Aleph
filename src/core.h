@@ -6,6 +6,7 @@
 
 typedef void (bltinfn)(Alf_State *a, Context *c);
 
-ALF_API void vm_run_program(Alf_State *a);
+extern void vm_run_program(Alf_State *a);
+extern StkVal fetch_data(Alf_State *alf);
 
 #endif // CORE_H_

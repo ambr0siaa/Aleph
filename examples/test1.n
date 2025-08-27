@@ -1,10 +1,12 @@
+// Test function calls
+
 void a() {
     putstr("Amma ");
 }
 
 void b() {
     a();
-    putstr("alive ");
+    putstr("\"alive\" ");
 }
 
 void main() {

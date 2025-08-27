@@ -1,15 +1,15 @@
 #include <assert.h>
 #include "core.h"
 
-ALF_FUNC StkVal fetch_data(Alf_State *alf) {
+inline StkVal fetch_data(Alf_State *alf) {
     return alf->data[alf->lp][alf->dp++];
 }
 
-ALF_FUNC Opcode fetch_inst(Alf_State *alf) {
+Opcode fetch_inst(Alf_State *alf) {
     return instext(alf->code[alf->lp][alf->ip++]);
 }
 
-ALF_FUNC void stack_push(Arena *a, Alf_State *alf, StkVal v) {
+static inline void stack_push(Arena *a, Alf_State *alf, StkVal v) {
     arena_da_append_parts(a, alf->stack, alf->sp, alf->stksize, v);
 }
 
@@ -19,7 +19,7 @@ void putstr(Alf_State *a) {
     while (*p) putchar(*p++);
 }
 
-ALF_FUNC int inst_exec(Arena *a, Alf_State *alf) {
+static inline int inst_exec(Arena *a, Alf_State *alf) {
     int status = 1;
     Opcode op = fetch_inst(alf);
     switch (op) {
@@ -34,7 +34,7 @@ ALF_FUNC int inst_exec(Arena *a, Alf_State *alf) {
         }
         case OP_CALL: {
             Address addr = fetch_data(alf).u;
-            assert(addr < alf->codeptr);
+            alf_assert(addr < alf->codeptr);
             stack_push(a, alf, StkUint(alf->fp));
             stack_push(a, alf, StkUint(alf->ip));
             stack_push(a, alf, StkUint(alf->dp));
@@ -45,7 +45,7 @@ ALF_FUNC int inst_exec(Arena *a, Alf_State *alf) {
             break;
         }
         case OP_RET: {
-            assert(alf->fp > 3);
+            alf_assert(alf->fp > 3);
             alf->lp = alf->stack[alf->fp - 1].u;
             alf->dp = alf->stack[alf->fp - 2].u;
             alf->ip = alf->stack[alf->fp - 3].u;
@@ -67,7 +67,7 @@ ALF_FUNC int inst_exec(Arena *a, Alf_State *alf) {
     return status;
 }
 
-int inst_dump(Alf_State *a) {
+static int inst_dump(Alf_State *a) {
     int status = 1;
     Opcode op = fetch_inst(a);
     switch (op) {

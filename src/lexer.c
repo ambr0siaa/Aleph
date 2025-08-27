@@ -2,14 +2,14 @@
 #include "panic.h"
 
 static const char *keywords[] = {
-    "if",   "else", "elif", "while", "true",
+    "if", "else", "elif", "while", "true",
     "false", "module", "import", "return"
 };
 
 #define lexer_current_next(l) \
     ({ (l)->current = *((l)->content.items + 1); })
 
-Lexer lexer_init(Alf_State *a, Reader *r) {
+inline Lexer lexer_init(Alf_State *a, Reader *r) {
     Lexer l = {0};
     l.alf = a;
     l.file = r->file;
@@ -25,7 +25,7 @@ Lexer lexer_init(Alf_State *a, Reader *r) {
 }
 
 // TODO: Support 0d 0x formats, tokenize flt
-ALF_FUNC Slice tokenize_numlit(Slice *content) {
+static Slice tokenize_numlit(Slice *content) {
     size_t i = 0;
     const char *items = content->items;
     while (i <= content->count && isdigit(items[i])) ++i;
@@ -34,7 +34,7 @@ ALF_FUNC Slice tokenize_numlit(Slice *content) {
     return result;
 }
 
-ALF_FUNC Slice tokenize_text(Slice *content) {
+static Slice tokenize_text(Slice *content) {
     size_t i = 0;
     const char *items = content->items;
     while (i <= content->count
@@ -47,13 +47,14 @@ ALF_FUNC Slice tokenize_text(Slice *content) {
     return result;
 }
 
-#define typecase(type_, shift_) \
-    ({ tk.type = (type_); tk.text.items = l->content.items; \
-        slice_shift(&l->content, (shift_)); l->current = *l->content.items; return tk; })
+#define typecase(type_, shift_) do { \
+    tk.type = (type_); tk.text.items = l->content.items; \
+    slice_shift(&l->content, (shift_)); l->current = *l->content.items; return tk; \
+} while (0)
 
 #define charisret(c) ((c) == '\n' || (c) == '\r')
 
-ALF_FUNC Token tokenizer(Lexer *l) {
+static Token tokenizer(Lexer *l) {
     Token tk;
     for (;;) {
         if (l->content.count == 0) {
@@ -66,18 +67,20 @@ ALF_FUNC Token tokenizer(Lexer *l) {
                 size_t count = l->content.count;
                 const char *items = l->content.items;
                 lexer_current_next(l);
-                if (l->current == '*') { // Multicomments
-                    while (i <= count) {
+                if (l->current == '*') {
+                    // Multi-comments
+                    while (i < count) {
                         if (items[i] == '*'
-                        &&  i + 1 <= count) {
+                        &&  i + 1 < count) {
                             if (items[i + 1] == '/') {
-                                ++i; break;
+                                i += 2; break;
                             } else ++i;
                         } else if (charisret(items[i])) {
                             l->line_number++; ++i; 
                         } else ++i;
                     }
-                } else if (l->current == '/') { // Single line comment
+                } else if (l->current == '/') {
+                    // Single line comment
                     while (i <= count
                     &&    !charisret(items[i])) ++i;
                 } else {
@@ -133,27 +136,29 @@ ALF_FUNC Token tokenizer(Lexer *l) {
                 l->current = *l->content.items;
                 return tk;
             } case '\"': case '\'':  {
-                // TODO: String interpolation
-                //       Somehow fix location.offset for strings
                 size_t i = 0;
                 Slice *content = &l->content;
                 slice_shift(content, 1); // Skip `"`
-                while (i <= content->count
-                &&     content->items[i] != '"') ++i;
+                while (i <= content->count) {
+                    if (content->items[i] == '"') break;
+                    else if (content->items[i] == '\\') i += 2;
+                    else ++i;
+                }
                 tk.type = TK_STRLIT;
                 tk.text = slice_parts(content->items, i);
                 slice_shift(content, i + 1);
                 l->current = *content->items;
                 return tk;
             } default: {
-                Token_Type *type; // TODO: Non-text characters 
-                tk.text = tokenize_text(&l->content);
-                if (tk.text.count == 0) {
+                Token_Type *type;
+                CString *text = &tk.text;
+                *text = tokenize_text(&l->content);
+                if (text->count == 0) {
                     l->alf->status = ALF_STATUS_FCK;
                     return tk;
                 }
                 l->current = *l->content.items;
-                map_strget(&l->keywords, tk.text.items, tk.text.count, type);
+                map_strget(&l->keywords, text->items, text->count, type);
                 if (type == NULL) tk.type = TK_ID;
                 else tk.type = *type;
                 return tk;
@@ -285,3 +290,4 @@ void lexer_view(Lexer *l) {
         lexer_token_print(&tk);
     }
 }
+

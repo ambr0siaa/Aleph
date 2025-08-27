@@ -1,8 +1,7 @@
-#include <assert.h>
 #include "parser.h"
 
 ALF_FUNC const char *shift_args(int *argc, char ***argv) {
-    assert(*argc > 0);
+    alf_assert(*argc > 0);
     const char *arg = **argv;
     *argc -= 1;
     *argv += 1;

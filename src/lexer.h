@@ -23,6 +23,7 @@ typedef enum {
 } Token_Type;
 
 #define lexer_failer(l) ((l)->alf->status == ALF_STATUS_FCK)
+#define lexer_defer if (lexer_failer(l)) goto defer;
 
 typedef struct {
     Token_Type type;
@@ -33,22 +34,22 @@ typedef struct {
 #define TOK_NONE (Token) { .type = TK_NONE }
 
 typedef struct {
-    Map        keywords;           // Table of keywords
-    char       current;           // First character
-    Slice      content;          // Source code
-    alf_uint   line_number;   // Number of line
+    Map        keywords;    // Table of keywords
+    char       current;     // First character
+    Slice      content;     // Source code
+    alf_uint   line_number; // Number of line
     const char *line_start; // For offset
     const char *file;       // Parsing file
     Alf_State  *alf;        // Save state
 } Lexer;
 
-ALF_API Lexer lexer_init(Alf_State *a, Reader *r);
-ALF_API Token lexer_next(Lexer *l);
-ALF_API Token lexer_peek(Lexer *l);
-ALF_API Token lexer_expect(Lexer *l, Token_Type type);
-ALF_API void  lexer_token_print(Token *tk);
-ALF_API void  lexer_view(Lexer *l);
-ALF_API const char *token_type_as_cstr(Token_Type t);
-ALF_API int lexer_check(Lexer *l, Token_Type type);
+extern Lexer lexer_init(Alf_State *a, Reader *r);
+extern Token lexer_next(Lexer *l);
+extern Token lexer_peek(Lexer *l);
+extern Token lexer_expect(Lexer *l, Token_Type type);
+extern void  lexer_token_print(Token *tk);
+extern void  lexer_view(Lexer *l);
+extern const char *token_type_as_cstr(Token_Type t);
+extern int lexer_check(Lexer *l, Token_Type type);
 
 #endif // LEXER_H_

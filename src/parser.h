@@ -80,8 +80,9 @@ struct Expr {
 #define StkUint(v)  (StkVal) { .u = (v) }
 #define StkChar(v)  (StkVal) { .c = (v) }
 
-ALF_API void mainfunc(Alf_State *alf, Reader *r);
-ALF_API void parse_statement(Context *, Lexer *);
-ALF_API Expr expr(Arena *a, Lexer *l);
+extern void mainfunc(Alf_State *alf, Reader *r);
+extern void parse_statement(Context *c, Lexer *l);
+extern void parse_context(Context *c, Lexer *l);
+extern Expr expr(Arena *a, Lexer *l);
 
 #endif // PARSER_H_
