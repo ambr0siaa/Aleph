@@ -50,7 +50,7 @@
 #    include <sys/types.h>
 #endif
 
-#define BILFN static inline
+#define BILFN static
 
 #define BIL_DA_INIT_CAPACITY 256
 

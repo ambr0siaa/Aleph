@@ -5,8 +5,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#define Str_Fmt "%.*s"
-#define Str_Args(s) (int)(s).count, (s).items
+#define StrFmt "%.*s"
+#define StrArgs(s) (int)(s).count, (s).items
 
 typedef struct {
     size_t     count;
@@ -14,6 +14,7 @@ typedef struct {
 } Slice;
 
 typedef Slice CString; // Constant string
+#define cstring(s, c) (CString) { .items = (s), .count = (c) }
 
 typedef struct {
     size_t count;

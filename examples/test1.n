@@ -1,15 +1,15 @@
 // Test function calls
 
 void a() {
-    putstr("Amma ");
+    builtin::putstr("Amma ");
 }
 
 void b() {
     a();
-    putstr("\"alive\" ");
+    builtin::putstr("\"alive\" ");
 }
 
 void main() {
     b();
-    putstr("on this computer ;3 \n");
+    builtin::putstr("on this computer ;3 \n");
 }

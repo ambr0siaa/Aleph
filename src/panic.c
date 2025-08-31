@@ -8,12 +8,12 @@
     va_end(args); \
 } while(0)
 
-void alf_panic(const char *p, const char *fmt, ...) {
+void panicf(const char *p, const char *fmt, ...) {
     fprintf(stderr, "%s: ", p);
     panic_common(fmt);
 }
 
 void panic(Location *l, const char *fmt, ...) {
-    fprintf(stderr, "error "Loc_Fmt, Loc_Args(*l));
+    fprintf(stderr, "error at "Loc_Fmt, Loc_Args(*l));
     panic_common(fmt);
 }

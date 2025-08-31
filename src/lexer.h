@@ -1,22 +1,27 @@
 #ifndef LEXER_H_
 #define LEXER_H_
 
-#include "common.h"
+#include "aleph.h"
 #include "reader.h"
 #include "hashmap.h"
 
-// TODO: Support bitwise operation, logic operation, operation when assigning
 typedef enum {
-    TK_NONE = 0, TK_NUMLIT, TK_STRLIT, TK_ID,
+    TK_NONE = 0, TK_NUMLIT,
+    TK_STRLIT,   TK_ID,
     
     // Special tokens
-    TK_OPAREN, TK_CPAREN, TK_OBRACKET, TK_CBRACKET, TK_PLUS,
-    TK_MINUS, TK_STAR, TK_DIVIDE, TK_COMMA, TK_OCURLY, TK_CCURLY,
-    TK_SEMICOLON, TK_COLON, TK_DOT, TK_ASSIGN, TK_EQ, TK_LE, TK_LT, TK_GE, TK_GT,
+    TK_OPAREN,   TK_CPAREN, TK_OBRACKET,
+    TK_CBRACKET, TK_PLUS,   TK_MINUS,
+    TK_STAR,     TK_DIVIDE, TK_COMMA,
+    TK_OCURLY,   TK_CCURLY, TK_SEMICOLON,
+    TK_COLON,    TK_DOT,    TK_ASSIGN,
+    TK_EQ,       TK_LE,     TK_LT,
+    TK_GE,       TK_GT,     TK_DBLCOLON,
     
     // Keywords: only in this order
-    TK_IF, TK_ELSE, TK_ELIF, TK_WHILE, TK_TRUE,
-    TK_FALSE, TK_MODULE, TK_IMPORT, TK_RETURN,
+    TK_IF,     TK_ELSE,   TK_ELIF,
+    TK_WHILE,  TK_TRUE,   TK_FALSE,
+    TK_MODULE, TK_IMPORT, TK_RETURN,
 
     TK_EOF,
     TKC     // Count of Tokens

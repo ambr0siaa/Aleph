@@ -9,23 +9,48 @@
 #define TARGET "bin/aleph"
 
 #define SRC "src/aleph.c", "src/str.c", "src/hashmap.c", "src/lexer.c", \
-            "src/reader.c", "src/arena.c", "src/panic.c", "src/parser.c", "src/core.c"
+            "src/reader.c", "src/arena.c", "src/panic.c", "src/parser.c", \
+            "src/core.c"
 
 #define OBJ "src/aleph.o", "src/str.o", "src/hashmap.o", "src/lexer.o", \
-            "src/reader.o", "src/arena.o", "src/panic.o", "src/parser.o", "src/core.o"
+            "src/reader.o", "src/arena.o", "src/panic.o", "src/parser.o", \
+            "src/core.o"
 
-#define HDR "src/common.h", "src/str.h", "src/hashmap.h", "src/lexer.h", \
-            "src/reader.h", "src/arena.h",  "src/panic.h", "src/parser.h", "src/core.h"
+#define HDR "src/aleph.h", "src/str.h", "src/hashmap.h", "src/lexer.h", \
+            "src/reader.h", "src/arena.h",  "src/panic.h", "src/parser.h", \
+            "src/core.h"
 
 #define DIR "bin"
 
-static int g_flag, build_flag, o_flag, c_flag;
+#define BUILTIN_SRC "src/builtin.c", "src/core.c"
+#define BUILTIN_OBJ "src/builtin.o", "src/core.o"
+#define BUILTIN_TAR "src/builtin.so"
+
+static int g_flag, build_flag, o_flag;
 
 BILFN void common_build_options(Cmd *cmd) {
     cmd_append(cmd, CC);
     cmd_append(cmd, CFLAGS);
     if (g_flag) cmd_append(cmd, DBFLAG);
     else if (o_flag) cmd_append(cmd, OFLAGS);
+}
+
+BILFN int build_builtins(void) {
+    workflow_begin(); {
+        Cmd cmd = {0};
+        cmd_append(&cmd, CC);
+        cmd_append(&cmd, "-Wall", "-Wextra");
+        if (g_flag) {
+            cmd_append(&cmd, DBFLAG);
+        } else if (o_flag) {
+            cmd_append(&cmd, "-O3");
+        }
+        cmd_append(&cmd, "-shared", "-fPIC");
+        cmd_append(&cmd, "-o", BUILTIN_TAR);
+        cmd_append(&cmd, BUILTIN_OBJ);
+        if (!cmd_run_sync(&cmd)) return false;
+        return true;
+    } workflow_end();
 }
 
 BILFN bool build_object_file(String_Builder *src, String_Builder *obj) {
@@ -45,14 +70,6 @@ BILFN void parse_cmd_args(int *argc, char ***argv) {
                 case 'b': build_flag = 1; break;
                 case 'g': g_flag = 1;     break;
                 case 'o': o_flag = 1;     break;
-                case 'c': {
-                    c_flag = 1;
-                    switch (arg[2]) {
-                        case 'o': c_flag |= 2; break;
-                        default: break;
-                    }
-                    break;
-                }
                 case 'h': {
                     report(BIL_INFO,
                            "Usage:\n"
@@ -84,6 +101,11 @@ BILFN int build_project(void) {
             if (!build_object_file(&source, &object))
                 return EXIT_ERR;
         })
+        String_Builder source = sb_from_cstr("src/builtin.c");
+        String_Builder object = sb_from_cstr("src/builtin.o");
+        if (!build_object_file(&source, &object))
+            return EXIT_ERR;
+        build_builtins();
         cmd_append(&cmd, OBJ);
         cmd_append(&cmd, "-o", TARGET);
         if (!cmd_run_sync(&cmd))
@@ -92,25 +114,19 @@ BILFN int build_project(void) {
     return EXIT_OK;
 }
 
-BILFN int clean_command(void) {
-    workflow_begin(); {
-        Cmd cmd = {0};
-        cmd_append(&cmd, "rm", "-rf", "test");
-        if (!cmd_run_sync(&cmd)) return EXIT_FAILURE;
-    } workflow_end(WORKFLOW_NO_TIME);
-    return EXIT_SUCCESS;
-}
-
 int main(int argc, char **argv) {
     SCRIPT_REBUILD(argc, argv, DIR);
     int status = EXIT_OK;
     parse_cmd_args(&argc, &argv);
-    if (c_flag) return clean_command();
-    if (build_flag) return build_project();
+    if (build_flag) {
+        return build_project();
+    }
     workflow_begin(); {
         Cmd cmd = {0};
         Dep aleph = {0};
+        Dep builtin = {0};
         Cstr_Array src = {0};
+        dep_init(&builtin, "bin/builtin.bil", BUILTIN_SRC);
         dep_init(&aleph, "bin/aleph.bil", SRC, HDR);
         da_append_items(&src, SRC);
         workflow_begin(); {
@@ -123,29 +139,35 @@ int main(int argc, char **argv) {
                 }
             })
         } workflow_end(WORKFLOW_NO_TIME);
+        if (dep_ischange(&builtin)) {
+            workflow_begin(); {
+                foreach(String_Builder, aleph.changed, {
+                    if (!build_object_file(&source, &object)) {
+                        defer_status(EXIT_ERR);
+                    }
+                })
+                build_builtins();
+            } workflow_end(WORKFLOW_NO_TIME);
+        }
         if (dep_ischange(&aleph)) {
             workflow_begin(); {
-                aleph.update = DEP_UPDATE_TRUE;
                 foreach(String_Builder, aleph.changed, {
                     if (source.items[source.count - 2] != 'c') continue;
                     if (!build_object_file(&source, &object)) {
                         defer_status(EXIT_ERR);
                     }
                 })
+                common_build_options(&cmd);
+                cmd_append(&cmd, OBJ);
+                cmd_append(&cmd, "-o", TARGET);
+                if (!cmd_run_sync(&cmd)) {
+                    defer_status(EXIT_ERR);
+                }
             } workflow_end(WORKFLOW_NO_TIME);
         }
-        if (aleph.update) {
-            common_build_options(&cmd);
-            cmd_append(&cmd, OBJ);
-            cmd_append(&cmd, "-o", TARGET);
-            if (!cmd_run_sync(&cmd)) {
-                defer_status(EXIT_ERR);
-            }
-        } else {
-            report(BIL_INFO, "No changes");
-        }
     } 
-    defer:
+    defer: {
         workflow_end();
         return status;
+    }
 }

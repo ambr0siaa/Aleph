@@ -1,5 +1,5 @@
 /* Simple hello world */
 
 void main() {
-    putstr("Hello, World!\n");
+    builtin::putstr("Hello, World!\n");
 }

@@ -3,14 +3,16 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include "common.h"
+#include "aleph.h"
 
-#define Err_Fmt "error"
+#define UsgFmt  "usage"
+#define ErrFmt  "error"
+#define TodoFmt "todo"
 
-#define Loc_Fmt     "(%s)%zu:%zu: "
+#define Loc_Fmt     "%s:%zu:%zu: "
 #define Loc_Args(l) (l).file, (l).line, (l).offset
 
-extern void alf_panic(const char *p, const char *fmt, ...);
+extern void panicf(const char *p, const char *fmt, ...);
 extern void panic(Location *l, const char *fmt, ...);
 
 #endif // LOG_H_

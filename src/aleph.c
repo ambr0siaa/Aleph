@@ -1,6 +1,6 @@
 #include "parser.h"
 
-ALF_FUNC const char *shift_args(int *argc, char ***argv) {
+static const char *shift_args(int *argc, char ***argv) {
     alf_assert(*argc > 0);
     const char *arg = **argv;
     *argc -= 1;
@@ -8,13 +8,13 @@ ALF_FUNC const char *shift_args(int *argc, char ***argv) {
     return arg;
 }
 
-ALF_FUNC void alf_usage(const char *program) {
-    printf("usage: %s [file.n] [options]\n"
+static void alf_usage(const char *program) {
+    panicf(UsgFmt,"%s [file.n] [options]\n"
            "options:\n"
-           "There is no way...\n", program);
+           "...\n", program);
 }
 
-ALF_FUNC Alf_State alf_state(const char *program) {
+static inline Alf_State alf_state(const char *program) {
     Alf_State alf = {0};
     alf.codesize = alf.datasize = 1;
     alf.program = program;
@@ -23,7 +23,8 @@ ALF_FUNC Alf_State alf_state(const char *program) {
     return alf;
 }
 
-ALF_FUNC void parse_cmd_flag(Alf_State *alf, const char *flag) {
+// Coming soon...
+static void parse_cmd_flag(Alf_State *alf, const char *flag) {
     (void)alf;
     (void)flag;
 }
@@ -32,7 +33,7 @@ int main(int argc, char **argv) {
     Reader reader = {0};
     Alf_State alf = alf_state(shift_args(&argc, &argv));
     if (argc == 0) {
-        alf_panic(alf.program, "Expected file path");
+        panicf(alf.program, "Expected file path");
         alf_usage(alf.program);
         alf_defer(&alf, ALF_STATUS_FCK);
     }

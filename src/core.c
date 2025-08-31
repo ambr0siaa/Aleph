@@ -1,11 +1,26 @@
 #include <assert.h>
 #include "core.h"
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#else
+#include <windows.h>
+#endif // _WIN32
+
+/*
+ * Note: I think there is no way to break
+ *       functions `fetch_data` and `fetch_inst`
+ *       cause all register are set by saved code
+ *       in save way and any user manipulation
+ *       can't switch registers to unreachable values.
+ *       This assumption maybe wrong, for this version
+ *       it not checked or cought yet.
+ */
 inline StkVal fetch_data(Alf_State *alf) {
     return alf->data[alf->lp][alf->dp++];
 }
 
-Opcode fetch_inst(Alf_State *alf) {
+static inline Opcode fetch_inst(Alf_State *alf) {
     return instext(alf->code[alf->lp][alf->ip++]);
 }
 
@@ -13,10 +28,14 @@ static inline void stack_push(Arena *a, Alf_State *alf, StkVal v) {
     arena_da_append_parts(a, alf->stack, alf->sp, alf->stksize, v);
 }
 
-void putstr(Alf_State *a) {
-    String *s = fetch_data(a).s;
-    char *p = s->items;
-    while (*p) putchar(*p++);
+static inline builtinfn builtinfn_search(Alf_State *alf, const char *name) {
+    builtinfn result = NULL;
+    #ifndef _WIN32 
+        *(void**)(&result) = dlsym(alf->builtins, name);
+    #else
+        *(void**)(&result) = (void*)GetProcAddress(alf->buitins, name);
+    #endif
+    return result;
 }
 
 static inline int inst_exec(Arena *a, Alf_State *alf) {
@@ -24,15 +43,18 @@ static inline int inst_exec(Arena *a, Alf_State *alf) {
     Opcode op = fetch_inst(alf);
     switch (op) {
         case OP_BLTIN: {
-            Address addr = fetch_data(alf).u;
-            if (addr == 0) putstr(alf);
-            else {
-                alf_panic("TODO", "Unkonwn built-in function");
+            String *s = fetch_data(alf).s;
+            builtinfn f = builtinfn_search(alf, (const char*)s->items);
+            if (!f) {
+                panicf(ErrFmt, "Could not find builtin function"StrFmt,
+                       StrArgs(*s));
                 alf->status = ALF_STATUS_FCK;
+                status = -1;
+                break;
             }
+            f(alf);
             break;
-        }
-        case OP_CALL: {
+        } case OP_CALL: {
             Address addr = fetch_data(alf).u;
             alf_assert(addr < alf->codeptr);
             stack_push(a, alf, StkUint(alf->fp));
@@ -43,22 +65,19 @@ static inline int inst_exec(Arena *a, Alf_State *alf) {
             alf->fp = alf->sp;
             alf->lp = addr;
             break;
-        }
-        case OP_RET: {
+        } case OP_RET: {
             alf_assert(alf->fp > 3);
             alf->lp = alf->stack[alf->fp - 1].u;
             alf->dp = alf->stack[alf->fp - 2].u;
             alf->ip = alf->stack[alf->fp - 3].u;
             alf->fp = alf->stack[alf->fp - 4].u;
             break;
-        }
-        case OP_HLT: {
+        } case OP_HLT: {
             alf->status = ALF_STATUS_OK;
             status = 0;
             break;
-        }
-        default: {
-            alf_panic(Err_Fmt, "Unknown instruction opcode `%u`", op);
+        } default: {
+            panicf(ErrFmt, "Unknown instruction opcode `%u`", op);
             alf->status = ALF_STATUS_FCK;
             status = -1;
             break;

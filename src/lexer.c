@@ -7,7 +7,7 @@ static const char *keywords[] = {
 };
 
 #define lexer_current_next(l) \
-    ({ (l)->current = *((l)->content.items + 1); })
+    do { (l)->current = *((l)->content.items + 1); } while(0)
 
 inline Lexer lexer_init(Alf_State *a, Reader *r) {
     Lexer l = {0};
@@ -24,7 +24,6 @@ inline Lexer lexer_init(Alf_State *a, Reader *r) {
     return l;
 }
 
-// TODO: Support 0d 0x formats, tokenize flt
 static Slice tokenize_numlit(Slice *content) {
     size_t i = 0;
     const char *items = content->items;
@@ -48,8 +47,12 @@ static Slice tokenize_text(Slice *content) {
 }
 
 #define typecase(type_, shift_) do { \
-    tk.type = (type_); tk.text.items = l->content.items; \
-    slice_shift(&l->content, (shift_)); l->current = *l->content.items; return tk; \
+    tk.type = (type_); \
+    tk.text.count = (shift_); \
+    tk.text.items = l->content.items; \
+    slice_shift(&l->content, (shift_)); \
+    l->current = *l->content.items; \
+    return tk; \
 } while (0)
 
 #define charisret(c) ((c) == '\n' || (c) == '\r')
@@ -62,7 +65,39 @@ static Token tokenizer(Lexer *l) {
             return tk;
         }
         switch (l->current) {
-            case '/': {
+            case '+': typecase(TK_PLUS, 1);
+            case '*': typecase(TK_STAR, 1);
+            case ',': typecase(TK_COMMA, 1);
+            case ';': typecase(TK_SEMICOLON, 1);
+            case '.': typecase(TK_DOT, 1);
+            case '(': typecase(TK_OPAREN, 1);
+            case ')': typecase(TK_CPAREN, 1);
+            case '[': typecase(TK_OBRACKET, 1);
+            case ']': typecase(TK_CBRACKET, 1);
+            case '{': typecase(TK_OCURLY, 1);
+            case '}': typecase(TK_CCURLY, 1);
+            case '-': typecase(TK_MINUS, 1);
+            case ':': {
+                lexer_current_next(l);
+                if (l->current == ':')
+                    typecase(TK_DBLCOLON, 2);
+                typecase(TK_COLON, 1);
+            } case '=': {
+                lexer_current_next(l);
+                if (l->current == '=')
+                    typecase(TK_EQ, 2);
+                typecase(TK_ASSIGN, 1);
+            } case '<': {
+                lexer_current_next(l);
+                if (l->current == '=')
+                    typecase(TK_LE, 2);
+                typecase(TK_LT, 1);
+            } case '>': {
+                lexer_current_next(l);
+                if (l->current == '=')
+                    typecase(TK_GE, 2);
+                typecase(TK_GT, 1);
+            } case '/': {
                 size_t i = 0;
                 size_t count = l->content.count;
                 const char *items = l->content.items;
@@ -100,35 +135,6 @@ static Token tokenizer(Lexer *l) {
                 l->line_start = content->items;
                 l->line_number++;
                 break;
-            }
-            case '+': typecase(TK_PLUS, 1);
-            case '*': typecase(TK_STAR, 1);
-            case ':': typecase(TK_COLON, 1);
-            case ',': typecase(TK_COMMA, 1);
-            case ';': typecase(TK_SEMICOLON, 1);
-            case '.': typecase(TK_DOT, 1);
-            case '(': typecase(TK_OPAREN, 1);
-            case ')': typecase(TK_CPAREN, 1);
-            case '[': typecase(TK_OBRACKET, 1);
-            case ']': typecase(TK_CBRACKET, 1);
-            case '{': typecase(TK_OCURLY, 1);
-            case '}': typecase(TK_CCURLY, 1);
-            case '-': typecase(TK_MINUS, 1);
-            case '=': {
-                lexer_current_next(l);
-                if (l->current == '=')
-                    typecase(TK_EQ, 2);
-                typecase(TK_ASSIGN, 1);
-            } case '<': {
-                lexer_current_next(l);
-                if (l->current == '=')
-                    typecase(TK_LE, 2);
-                typecase(TK_LT, 1);
-            } case '>': {
-                lexer_current_next(l);
-                if (l->current == '=')
-                    typecase(TK_GE, 2);
-                typecase(TK_GT, 1);
             } case '0': case '1': case '2': case '3': case '4':
               case '5': case '6': case '7': case '8': case '9': {
                 tk.text = tokenize_numlit(&l->content);
@@ -202,25 +208,26 @@ const char *token_type_as_cstr(Token_Type t) {
         case TK_NUMLIT:    return "numlit"; 
         case TK_STRLIT:    return "strlit"; 
         case TK_ID:        return "id"; 
-        case TK_OPAREN:    return "oparen"; 
-        case TK_CPAREN:    return "cparen"; 
-        case TK_OBRACKET:  return "obracket"; 
-        case TK_CBRACKET:  return "cbracket"; 
-        case TK_OCURLY:    return "ocurly"; 
-        case TK_CCURLY:    return "ccurly"; 
+        case TK_OPAREN:    return "open paren"; 
+        case TK_CPAREN:    return "close paren"; 
+        case TK_OBRACKET:  return "open bracket"; 
+        case TK_CBRACKET:  return "close bracket"; 
+        case TK_OCURLY:    return "open curly bracket"; 
+        case TK_CCURLY:    return "close curly brecket"; 
         case TK_PLUS:      return "plus"; 
         case TK_MINUS:     return "minus"; 
-        case TK_STAR:      return "star"; 
-        case TK_DIVIDE:    return "divide"; 
+        case TK_STAR:      return "star/multiply"; 
+        case TK_DIVIDE:    return "slash/divide"; 
         case TK_COMMA:     return "comma"; 
         case TK_COLON:     return "colon"; 
+        case TK_DBLCOLON:  return "double colon"; 
         case TK_DOT:       return "dot"; 
         case TK_ASSIGN:    return "assign"; 
-        case TK_EQ:        return "eq"; 
-        case TK_LE:        return "le"; 
-        case TK_LT:        return "lt"; 
-        case TK_GE:        return "ge"; 
-        case TK_GT:        return "gt"; 
+        case TK_EQ:        return "equal"; 
+        case TK_LE:        return "less or equal"; 
+        case TK_LT:        return "less then"; 
+        case TK_GE:        return "greater or equal"; 
+        case TK_GT:        return "greater than"; 
         case TK_IF:        return "if"; 
         case TK_ELSE:      return "else"; 
         case TK_ELIF:      return "elif"; 
@@ -256,6 +263,7 @@ void lexer_token_print(Token *tk) {
         case TK_COMMA:      printf("','");   break;
         case TK_SEMICOLON:  printf("';'");   break;
         case TK_COLON:      printf("':'");   break;
+        case TK_DBLCOLON:   printf("'::'");   break;
         case TK_DOT:        printf("'.'");   break;
         case TK_ASSIGN:     printf("'='");   break;
         case TK_EQ:         printf("'=='");  break;
@@ -268,7 +276,7 @@ void lexer_token_print(Token *tk) {
         case TK_FALSE:  case TK_ID:     case TK_IF:
         case TK_ELSE:   case TK_ELIF:   case TK_WHILE:
         case TK_MODULE: case TK_IMPORT: case TK_RETURN:
-            printf("'"Str_Fmt"'", Str_Args(tk->text)); break;
+            printf("'"StrFmt"'", StrArgs(tk->text)); break;
         default: {
             printf("Unknown token type `%u`", tk->type);
             break;
@@ -281,8 +289,7 @@ void lexer_view(Lexer *l) {
     for (;;) {
         Token tk = lexer_next(l);
         if (lexer_failer(l)) {
-            fprintf(stderr,
-                    "%zu:%zu:Unknown character `%c`",
+            fprintf(stderr, "%zu:%zu:Unknown character `%c`",
                     tk.loc.line, tk.loc.offset, l->current);
             return;
         }

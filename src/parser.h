@@ -14,7 +14,6 @@ typedef struct Module Module;
 
 struct Module {
     Arena    a;
-    alf_byte entry;
     CString  name;
     Map      typetable;
     Map      callstack;
@@ -34,7 +33,6 @@ struct Context {
 
 typedef struct {
     alf_byte used:1;
-    alf_byte bltin:1; // Function is builtin
     alf_uint type;    // Return type
     Address  addr;
     Context  *c;
@@ -48,14 +46,16 @@ typedef enum {
     EXPR_FLT,
     EXPR_STR,
     EXPR_UINT,
-    EXPR_FUNCALL
+    EXPR_FUNCALL,
+    EXPR_OPTION
 } expr_t;
 
 typedef struct {
-    CString name;
-    size_t  count;
-    size_t  capacity;
-    Expr    *items;     // Argumets
+    alf_byte bltin:1;
+    CString  name;
+    size_t   count;
+    size_t   capacity;
+    Expr     *items;     // Argumets
 } Funcall;
 
 struct Expr {
@@ -72,17 +72,15 @@ struct Expr {
 
 #define ExprNone (Expr) { .t = EXPR_NONE }
 
-#define BUILTIN_TYPES_COUNT 6
 
 #define StkInt(v)   (StkVal) { .i = (v) }
 #define StkStr(v)   (StkVal) { .s = (v) }
 #define StkFlt(v)   (StkVal) { .f = (v) }
 #define StkUint(v)  (StkVal) { .u = (v) }
 #define StkChar(v)  (StkVal) { .c = (v) }
+#define StkPtr(v)   (StkVal) { .p = (v) }
 
 extern void mainfunc(Alf_State *alf, Reader *r);
-extern void parse_statement(Context *c, Lexer *l);
-extern void parse_context(Context *c, Lexer *l);
 extern Expr expr(Arena *a, Lexer *l);
 
 #endif // PARSER_H_
