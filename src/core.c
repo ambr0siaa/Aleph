@@ -38,18 +38,23 @@ static inline builtinfn builtinfn_search(Alf_State *alf, const char *name) {
     return result;
 }
 
-static inline int inst_exec(Arena *a, Alf_State *alf) {
-    int status = 1;
+static inline void builtin_mkname(Arena *a, String *name) {
+    name->items[name->count - 1] = '_';
+    arena_da_append(a, name, '\0');
+}
+
+static inline void inst_exec(Arena *a, Alf_State *alf) {
     Opcode op = fetch_inst(alf);
     switch (op) {
         case OP_BLTIN: {
             String *s = fetch_data(alf).s;
+            builtin_mkname(a, s);
             builtinfn f = builtinfn_search(alf, (const char*)s->items);
             if (!f) {
-                panicf(ErrFmt, "Could not find builtin function"StrFmt,
+                panicf(ErrFmt, "Could not find builtin function:"StrFmt,
                        StrArgs(*s));
                 alf->status = ALF_STATUS_FCK;
-                status = -1;
+                alf->bf = ALF_BREAK_PROGRAM;
                 break;
             }
             f(alf);
@@ -74,16 +79,15 @@ static inline int inst_exec(Arena *a, Alf_State *alf) {
             break;
         } case OP_HLT: {
             alf->status = ALF_STATUS_OK;
-            status = 0;
+            alf->bf = ALF_BREAK_PROGRAM;
             break;
         } default: {
             panicf(ErrFmt, "Unknown instruction opcode `%u`", op);
             alf->status = ALF_STATUS_FCK;
-            status = -1;
+            alf->bf = ALF_BREAK_PROGRAM;
             break;
         }
     }
-    return status;
 }
 
 static int inst_dump(Alf_State *a) {
@@ -148,11 +152,10 @@ static int inst_dump(Alf_State *a) {
 }
 
 void vm_run_program(Alf_State *a) {
-    int status = 1;
     Arena mem = {0};
+    a->bf = ALF_CONTINUE_PROGRAM;
     a->ip = a->sp = a->lp = 0;
     a->fp = a->dp = 0;
-    while (status > 0)
-        status = inst_exec(&mem, a);
+    while (a->bf) inst_exec(&mem, a);
     arena_free(&mem);
 }

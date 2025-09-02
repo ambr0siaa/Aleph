@@ -182,7 +182,11 @@ Expr expr(Arena *a, Lexer *l) {
     Token tk = lexer_next(l);
     CString text = tk.text;
     switch (tk.type) {
-        case TK_STRLIT: {
+        case TK_NUMLIT: { // TODO: parse floats
+            e.t = EXPR_INT;
+            e.i = slice_to_i64(&tk.text);
+            break;
+        } case TK_STRLIT: {
             e.t = EXPR_STR;
             e.s = string(a, (char*)text.items, text.count);
             break;
@@ -242,6 +246,9 @@ static void parse_expression(Context *c, Lexer *l) {
                 switch (arg.t) {
                     case EXPR_STR: {
                         context_push_data(&m->a, c, StkStr(arg.s));
+                        break;
+                    } case EXPR_INT: {
+                        context_push_data(&m->a, c, StkInt(arg.i));
                         break;
                     } default: {
                         panic(&location.loc, "TODO: Not supported another availible"

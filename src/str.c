@@ -1,5 +1,14 @@
 #include "str.h"
 
+long int slice_to_i64(Slice *s) {
+    long int result = 0;
+    size_t len = s->count;
+    for (size_t i = 0; i < len; ++i)
+        result = result * 10
+               + s->items[i] - '0';
+    return result;
+}
+
 int str_cmp(CString *s1, CString *s2) {
     if (s1->count == s2->count) {
         return strncmp(s1->items, s2->items, s1->count) == 0;

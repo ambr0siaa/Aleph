@@ -96,15 +96,11 @@ BILFN int build_project(void) {
         Cmd cmd = {0};
         Cstr_Array src = {0};
         common_build_options(&cmd);
-        da_append_items(&src, SRC);
-        foreach(String_Builder, src, {
+        da_append_items(&src, SRC, "src/builtin.c");
+        foreach(src, {
             if (!build_object_file(&source, &object))
                 return EXIT_ERR;
         })
-        String_Builder source = sb_from_cstr("src/builtin.c");
-        String_Builder object = sb_from_cstr("src/builtin.o");
-        if (!build_object_file(&source, &object))
-            return EXIT_ERR;
         build_builtins();
         cmd_append(&cmd, OBJ);
         cmd_append(&cmd, "-o", TARGET);
@@ -115,43 +111,36 @@ BILFN int build_project(void) {
 }
 
 int main(int argc, char **argv) {
-    SCRIPT_REBUILD(argc, argv, DIR);
+    REBUILD_SCRIPT(argc, argv, DIR);
     int status = EXIT_OK;
     parse_cmd_args(&argc, &argv);
-    if (build_flag) {
-        return build_project();
-    }
+    if (build_flag) return build_project();
     workflow_begin(); {
         Cmd cmd = {0};
         Dep aleph = {0};
         Dep builtin = {0};
         Cstr_Array src = {0};
-        dep_init(&builtin, "bin/builtin.bil", BUILTIN_SRC);
         dep_init(&aleph, "bin/aleph.bil", SRC, HDR);
-        da_append_items(&src, SRC);
-        workflow_begin(); {
-            foreach(String_Builder, src, {
-                if (!file_exist(object.items)) {
-                    aleph.update = DEP_UPDATE_TRUE;
-                    if (!build_object_file(&source, &object)) {
-                        defer_status(EXIT_ERR);
-                    }
+        dep_init(&builtin, "bin/builtin.bil", BUILTIN_SRC);
+        da_append_items(&src, SRC, "src/builtin.c");
+        foreach(src, {
+            if (!file_exist(object.items)) {
+                aleph.update = DEP_UPDATE_TRUE;
+                if (!build_object_file(&source, &object)) {
+                    defer_status(EXIT_ERR);
+                }
+            }
+        })
+        if (dep_ischange(&builtin)) {
+            foreach(builtin.changed, {
+                if (!build_object_file(&source, &object)) {
+                    defer_status(EXIT_ERR);
                 }
             })
-        } workflow_end(WORKFLOW_NO_TIME);
-        if (dep_ischange(&builtin)) {
-            workflow_begin(); {
-                foreach(String_Builder, aleph.changed, {
-                    if (!build_object_file(&source, &object)) {
-                        defer_status(EXIT_ERR);
-                    }
-                })
-                build_builtins();
-            } workflow_end(WORKFLOW_NO_TIME);
+            build_builtins();
         }
         if (dep_ischange(&aleph)) {
-            workflow_begin(); {
-                foreach(String_Builder, aleph.changed, {
+                foreach(aleph.changed, {
                     if (source.items[source.count - 2] != 'c') continue;
                     if (!build_object_file(&source, &object)) {
                         defer_status(EXIT_ERR);
@@ -163,7 +152,6 @@ int main(int argc, char **argv) {
                 if (!cmd_run_sync(&cmd)) {
                     defer_status(EXIT_ERR);
                 }
-            } workflow_end(WORKFLOW_NO_TIME);
         }
     } 
     defer: {

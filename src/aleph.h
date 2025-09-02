@@ -42,7 +42,8 @@ typedef struct Alf_State Alf_State;
 typedef void (*builtinfn)(Alf_State *a);
 
 struct Alf_State {
-    alf_byte    status;
+    int         status;
+    alf_byte    cf, bf;
     alf_uint    fnid;
     alf_uint    stksize;
     Address     fp, ip;

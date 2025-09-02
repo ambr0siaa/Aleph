@@ -4,6 +4,10 @@
 #include "aleph.h"
 #include "parser.h"
 
+#define ALF_BREAK_PROGRAM    0
+#define ALF_CONTINUE_PROGRAM 1
+
+
 // 52
 typedef enum {
     OP_PUSH,

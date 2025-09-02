@@ -1,0 +1,5 @@
+// Test exit function
+
+void main() {
+    builtin::exit(169);
+}

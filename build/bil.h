@@ -192,7 +192,7 @@ static Bil_Workflow *workflow = NULL;
 #  endif
 #endif /* BIL_REBUILD_COMMAND */
 
-#define BIL_SCRIPT_REBUILD(argc, argv, deleteme_dir) do {                                               \
+#define BIL_REBUILD_SCRIPT(argc, argv, deleteme_dir) do {                                               \
         int status = -1;                                                                                \
         bil_workflow_begin(); {                                                                         \
             const char *output_file_path = (argv[0]);                                                   \
@@ -297,10 +297,10 @@ static Bil_Workflow *workflow = NULL;
 #define bil_workflow_end(...) \
     workflow_end_(((const int[]){__VA_ARGS__}), sizeof((const int[]){__VA_ARGS__}) / sizeof(const int));
 
-#define foreach(type, src, body) \
+#define foreach(src, body) \
     for (size_t i = 0; i < (src).count; ++i) { \
-        type source = bil_sb_from_cstr((src).items[i]); \
-        type object = bil_replace_file_extension(&source, "o"); \
+        Bil_String_Builder source = bil_sb_from_cstr((src).items[i]); \
+        Bil_String_Builder object = bil_replace_file_extension(&source, "o"); \
         bil_sb_join_nul(&source); \
         body  \
     }
@@ -1224,7 +1224,7 @@ typedef Bil_Dep             Dep;
 #define Str_Args Bil_Str_Args
 #define Str_Fmt  Bil_Str_Fmt
 
-#define SCRIPT_REBUILD          BIL_SCRIPT_REBUILD
+#define REBUILD_SCRIPT          BIL_REBUILD_SCRIPT
 #define da_append               bil_da_append
 #define da_append_many          bil_da_append_many
 #define da_append_da            bil_da_append_da
