@@ -1,0 +1,8 @@
+// Test variables
+
+int main() {
+    a:int;
+    a = 123;
+    b:int = 2134;
+    c:int = a;
+}

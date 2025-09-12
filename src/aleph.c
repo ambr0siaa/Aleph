@@ -9,9 +9,10 @@ static const char *shift_args(int *argc, char ***argv) {
 }
 
 static void alf_usage(const char *program) {
-    panicf(UsgFmt,"%s [file.n] [options]\n"
+    panicf(UsgFmt,
+           "%s [file.n] [options]\n"
            "options:\n"
-           "...\n", program);
+           "    No compiler options for now", program);
 }
 
 static inline Alf_State alf_state(const char *program) {
@@ -42,7 +43,9 @@ int main(int argc, char **argv) {
         if (arg[0] == '-') parse_cmd_flag(&alf, arg);
         else reader_file(reader, arg);
     }
-    reader_read(&reader);
+    if (!reader_read(&reader)) {
+        alf_defer(&alf, ALF_STATUS_FCK);
+    }
     mainfunc(&alf, &reader);
     defer: {
         reader_clean(reader);

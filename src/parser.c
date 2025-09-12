@@ -137,9 +137,8 @@ static void vardeclare(Lexer *l, Token *type, Token *name) {
 }
 
 // Coming soon...
-static void variable(Lexer *l, Token *type, Token *name) {
-    vardeclare(l, type, name);
-    return;
+static Var *variable(Arena *a, Lexer *l, CString *name) {
+    return NULL;
 }
 
 static Funcall *function_call(Arena *a, Lexer *l, CString *name) {
@@ -191,9 +190,19 @@ Expr expr(Arena *a, Lexer *l) {
             e.s = string(a, (char*)text.items, text.count);
             break;
         } case TK_ID: {
-            e.t = EXPR_FUNCALL;
-            e.fc = function_call(a, l, &text);
-            if (!e.fc) e = ExprNone; 
+            Token lookahead = lexer_peek(l);
+            if (lookahead.type == TK_OPAREN
+            ||  lookahead.type == TK_DBLCOLON) {
+                e.t = EXPR_FUNCALL;
+                e.fc = function_call(a, l, &text);
+                if (!e.fc) e = ExprNone; 
+            } else if (lookahead.type == TK_COLON) {
+                e.t = EXPR_VAR;
+                e.v = variable(a, l, &text);
+                if (!e.v) e = ExprNone;
+            } else {
+                e = ExprNone;
+            }
             break;
         } default: {
             panic(&tk.loc, "Unknown expression started from token `%s`", 

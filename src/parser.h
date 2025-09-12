@@ -47,7 +47,7 @@ typedef enum {
     EXPR_STR,
     EXPR_UINT,
     EXPR_FUNCALL,
-    EXPR_OPTION
+    EXPR_VAR,
 } expr_t;
 
 typedef struct {
@@ -58,6 +58,12 @@ typedef struct {
     Expr     *items;     // Argumets
 } Funcall;
 
+typedef struct {
+    size_t  type;
+    Address addr;
+    StkVal  val;
+} Var;
+
 struct Expr {
     expr_t t; 
     union {
@@ -67,6 +73,7 @@ struct Expr {
         char    c;
         String  *s;
         Funcall *fc;
+        Var     *v;
     };
 };
 
